@@ -10,12 +10,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call OpenAI
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Call OpenAI and save result
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           curl https://api.openai.com/v1/responses \
-          -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "model": "gpt-5.4",
-            "input": "Find newly posted director or senior director strategy jobs matching my criteria"
-          }'
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "gpt-5.4",
+              "input": "Search broadly across the web for newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Focus on Seattle, Bay Area, or Remote US. Search LinkedIn Jobs, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, company career pages, and Google-indexed listings. Return only strong matches. For each role include company, title, location, link, and one sentence on why it fits. If there are no strong matches, say that clearly."
+            }' \
+            -o openai_response.json
+
+      - name: Extract email body
+        run: |
+          python - <<'PY'
+          import json
+
+          with open("openai_response.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          text = "No result returned."
+
+          if "output_text" in data and data["output_text"]:
+              text = data["output_text"]
+          else:
+              try:
+                  parts = []
+                  for item in data.get("output", []):
+                      for c in item.get("content", []):
+                          if c.get("type") == "output_text":
+                              parts.append(c.get("text", ""))
+                  if parts:
+                      text = "\n\n".join(parts)
+              except Exception:
+                  pass
+
+          with open("email_body.txt", "w", encoding="utf-8") as f:
+              f.write(text)
+          PY
+
+      - name: Send email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: Job Radar Results
+          to: ${{ secrets.EMAIL_TO }}
+          from: Job Radar <${{ secrets.EMAIL_USERNAME }}>
+          body_file: email_body.txt
