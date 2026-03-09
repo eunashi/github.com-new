@@ -1,0 +1,21 @@
+name: Run Job Radar
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call OpenAI
+        run: |
+          curl https://api.openai.com/v1/responses \
+          -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "model": "gpt-5.4",
+            "input": "Find newly posted director or senior director strategy jobs matching my criteria"
+          }'
