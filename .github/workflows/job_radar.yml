@@ -2,7 +2,10 @@ name: Run Job Radar
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    # 8 AM – 4 PM PT
+    - cron: '0 15-23 * * *'
+    # 5 PM PT
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
@@ -10,10 +13,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Call OpenAI and save result
+      - name: Query OpenAI for new jobs
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -22,39 +26,42 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "model": "gpt-5.4",
-              "input": "Search broadly across the web for newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Focus on Seattle, Bay Area, or Remote US. Search LinkedIn Jobs, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, company career pages, and Google-indexed listings. Return only strong matches. For each role include company, title, location, link, and one sentence on why it fits. If there are no strong matches, say that clearly."
+              "input": "Search broadly across the internet for newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Focus on Seattle, Bay Area, or Remote US. Search LinkedIn Jobs, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, and company career pages. Return only strong matches. If none exist respond exactly: NO_MATCHES."
             }' \
             -o openai_response.json
 
-      - name: Extract email body
+      - name: Extract response text
         run: |
           python - <<'PY'
           import json
 
-          with open("openai_response.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
+          with open("openai_response.json") as f:
+              data=json.load(f)
 
-          text = "No result returned."
+          text=""
 
-          if "output_text" in data and data["output_text"]:
-              text = data["output_text"]
-          else:
-              try:
-                  parts = []
-                  for item in data.get("output", []):
-                      for c in item.get("content", []):
-                          if c.get("type") == "output_text":
-                              parts.append(c.get("text", ""))
-                  if parts:
-                      text = "\n\n".join(parts)
-              except Exception:
-                  pass
+          if "output_text" in data:
+              text=data["output_text"]
 
-          with open("email_body.txt", "w", encoding="utf-8") as f:
+          if not text:
+              for o in data.get("output",[]):
+                  for c in o.get("content",[]):
+                      if c.get("type")=="output_text":
+                          text+=c.get("text","")
+
+          text=text.strip()
+
+          with open("email_body.txt","w") as f:
               f.write(text)
+
+          if text=="NO_MATCHES" or len(text)<5:
+              open("send_email.flag","w").write("0")
+          else:
+              open("send_email.flag","w").write("1")
           PY
 
-      - name: Send email
+      - name: Send email only if jobs exist
+        if: ${{ hashFiles('send_email.flag') != '' && steps.extract_response_text.outputs != '0' }}
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -62,7 +69,7 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: Job Radar Results
+          subject: New Job Radar Matches
           to: ${{ secrets.EMAIL_TO }}
           from: Job Radar <${{ secrets.EMAIL_USERNAME }}>
           body_file: email_body.txt
