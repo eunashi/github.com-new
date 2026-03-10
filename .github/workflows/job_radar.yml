@@ -161,10 +161,13 @@ jobs:
               else:
                   header = [c.strip() for c in rows[0].strip("|").split("|")]
 
-                  html_body = "<html><body>"
+                  html_body = "<html><body style='font-family:Arial,sans-serif;font-size:14px;'>"
                   html_body += "<p><strong>New Job Radar Matches</strong></p>"
-                  html_body += "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;'>"
-                  html_body += "<tr>" + "".join(f"<th style='background:#f2f2f2;text-align:left;'>{html.escape(h)}</th>" for h in header) + "</tr>"
+                  html_body += "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>"
+                  html_body += "<tr>" + "".join(
+                      f"<th style='background:#f2f2f2;text-align:left;'>{html.escape(h)}</th>"
+                      for h in header
+                  ) + "</tr>"
 
                   for r in rows[2:]:
                       cells = [c.strip() for c in r.strip("|").split("|")]
@@ -178,7 +181,22 @@ jobs:
                               html_body += f"<td>{html.escape(c)}</td>"
                       html_body += "</tr>"
 
-                  html_body += "</table></body></html>"
+                  html_body += "</table>"
+
+                  html_body += """
+                  <br><br>
+                  <div style="font-size:12px;color:#444;">
+                  <strong>Signal Type Legend</strong><br>
+                  • <b>New Listing</b> – likely a genuinely new job posting<br>
+                  • <b>Repost</b> – employer refreshed or reposted the listing<br>
+                  • <b>Promotion Refresh</b> – boosted or promoted listing resurfacing<br>
+                  • <b>ATS Refresh / Re-index</b> – feed or index refresh rather than a new posting<br>
+                  • <b>Previously Seen</b> – job already surfaced in earlier radar runs<br>
+                  • <b>Unclear</b> – insufficient evidence to determine freshness<br>
+                  </div>
+                  """
+
+                  html_body += "</body></html>"
 
           pathlib.Path("email_body.html").write_text(html_body, encoding="utf-8")
           PY
