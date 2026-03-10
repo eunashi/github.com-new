@@ -2,7 +2,7 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM – 4 PM PT
+    # 8 AM–4 PM PT
     - cron: '0 15-23 * * *'
     # 5 PM PT
     - cron: '0 0 * * *'
@@ -13,6 +13,8 @@ on:
 jobs:
   run-agent:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repo
@@ -69,59 +71,69 @@ jobs:
           python - <<'PY'
           import json, pathlib
 
-          data=json.load(open("openai_response.json"))
+          data = json.load(open("openai_response.json"))
 
-          text=data.get("output_text","")
+          text = data.get("output_text", "")
 
           if not text:
-              parts=[]
-              for o in data.get("output",[]):
-                  for c in o.get("content",[]):
-                      if c.get("type")=="output_text":
-                          parts.append(c.get("text",""))
-              text="\n".join(parts)
+              parts = []
+              for o in data.get("output", []):
+                  for c in o.get("content", []):
+                      if c.get("type") == "output_text":
+                          parts.append(c.get("text", ""))
+              text = "\n".join(parts)
 
           if not text.strip():
-              text="NO_MATCHES"
+              text = "NO_MATCHES"
 
-          pathlib.Path("email_body.txt").write_text(text)
+          pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
           PY
 
       - name: Filter already seen jobs
         run: |
           python - <<'PY'
-          import json,re,pathlib
+          import json, pathlib
 
-          body=pathlib.Path("email_body.txt").read_text()
+          body = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
 
-          if body.strip()=="NO_MATCHES":
-              pathlib.Path("send_email.txt").write_text("false")
+          if body == "NO_MATCHES":
+              pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
               raise SystemExit
 
-          seen=json.loads(pathlib.Path("seen_jobs.json").read_text())
+          seen = json.loads(pathlib.Path("seen_jobs.json").read_text(encoding="utf-8"))
 
-          lines=[l for l in body.splitlines() if "|" in l]
+          lines = [l for l in body.splitlines() if "|" in l]
 
-          new_rows=[]
-          new_links=[]
+          if len(lines) < 3:
+              pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
+              raise SystemExit
 
-          for line in lines:
-              parts=[p.strip() for p in line.split("|") if p.strip()]
-              if len(parts)<7:
+          header = lines[0]
+          separator = lines[1]
+          data_rows = lines[2:]
+
+          new_rows = []
+          new_links = []
+
+          for line in data_rows:
+              parts = [p.strip() for p in line.split("|") if p.strip()]
+              if len(parts) < 9:
                   continue
-              link=parts[6]
+
+              link = parts[6]
 
               if link not in seen:
                   new_rows.append(line)
                   new_links.append(link)
 
           if not new_rows:
-              pathlib.Path("send_email.txt").write_text("false")
+              pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
           else:
               seen.extend(new_links)
-              pathlib.Path("seen_jobs.json").write_text(json.dumps(seen,indent=2))
-              pathlib.Path("email_body.txt").write_text("\n".join(new_rows))
-              pathlib.Path("send_email.txt").write_text("true")
+              pathlib.Path("seen_jobs.json").write_text(json.dumps(seen, indent=2), encoding="utf-8")
+              final_table = "\n".join([header, separator] + new_rows)
+              pathlib.Path("email_body.txt").write_text(final_table, encoding="utf-8")
+              pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
           PY
 
       - name: Commit memory
@@ -130,39 +142,45 @@ jobs:
           git config --global user.name "github-actions"
           git add seen_jobs.json
           git commit -m "update job memory" || echo "no changes"
-          git push
+          git push origin HEAD:main
 
       - name: Convert table to HTML
         run: |
           python - <<'PY'
           import html, pathlib
 
-          text=pathlib.Path("email_body.txt").read_text()
+          text = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
 
-          if not text.strip():
-              html_body="<p>No matches</p>"
+          if not text:
+              html_body = "<html><body><p>No matches</p></body></html>"
           else:
-              rows=[r for r in text.splitlines() if r.startswith("|")]
+              rows = [r for r in text.splitlines() if r.startswith("|")]
 
-              header=[c.strip() for c in rows[0].strip("|").split("|")]
+              if len(rows) < 3:
+                  html_body = f"<html><body><pre>{html.escape(text)}</pre></body></html>"
+              else:
+                  header = [c.strip() for c in rows[0].strip("|").split("|")]
 
-              html_body="<html><body>"
-              html_body+="<table border='1' cellpadding='6' style='border-collapse:collapse;font-family:Arial;'>"
-              html_body+="<tr>"+"".join(f"<th>{html.escape(h)}</th>" for h in header)+"</tr>"
+                  html_body = "<html><body>"
+                  html_body += "<p><strong>New Job Radar Matches</strong></p>"
+                  html_body += "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;'>"
+                  html_body += "<tr>" + "".join(f"<th style='background:#f2f2f2;text-align:left;'>{html.escape(h)}</th>" for h in header) + "</tr>"
 
-              for r in rows[2:]:
-                  cells=[c.strip() for c in r.strip("|").split("|")]
-                  html_body+="<tr>"
-                  for c in cells:
-                      if c.startswith("http"):
-                          html_body+=f"<td><a href='{html.escape(c)}'>Open job</a></td>"
-                      else:
-                          html_body+=f"<td>{html.escape(c)}</td>"
-                  html_body+="</tr>"
+                  for r in rows[2:]:
+                      cells = [c.strip() for c in r.strip("|").split("|")]
+                      if len(cells) != len(header):
+                          continue
+                      html_body += "<tr>"
+                      for idx, c in enumerate(cells):
+                          if header[idx].lower() == "direct link" and c.startswith("http"):
+                              html_body += f"<td><a href='{html.escape(c)}'>Open job</a></td>"
+                          else:
+                              html_body += f"<td>{html.escape(c)}</td>"
+                      html_body += "</tr>"
 
-              html_body+="</table></body></html>"
+                  html_body += "</table></body></html>"
 
-          pathlib.Path("email_body.html").write_text(html_body)
+          pathlib.Path("email_body.html").write_text(html_body, encoding="utf-8")
           PY
 
       - name: Load send flag
@@ -176,23 +194,23 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: |
           python - <<'PY'
-          import json,os,pathlib
+          import json, os, pathlib
 
-          html_body=pathlib.Path("email_body.html").read_text()
-          text_body=pathlib.Path("email_body.txt").read_text()
+          html_body = pathlib.Path("email_body.html").read_text(encoding="utf-8")
+          text_body = pathlib.Path("email_body.txt").read_text(encoding="utf-8")
 
-          payload={
-            "from":"Job Radar <onboarding@resend.dev>",
-            "to":[os.environ["EMAIL_TO"]],
-            "subject":"New Job Radar Matches",
-            "html":html_body,
-            "text":text_body
+          payload = {
+            "from": "Job Radar <onboarding@resend.dev>",
+            "to": [os.environ["EMAIL_TO"]],
+            "subject": "New Job Radar Matches",
+            "html": html_body,
+            "text": text_body
           }
 
-          pathlib.Path("payload.json").write_text(json.dumps(payload))
+          pathlib.Path("resend_payload.json").write_text(json.dumps(payload), encoding="utf-8")
           PY
 
           curl https://api.resend.com/emails \
             -H "Authorization: Bearer $RESEND_API_KEY" \
             -H "Content-Type: application/json" \
-            -d @payload.json
+            -d @resend_payload.json
