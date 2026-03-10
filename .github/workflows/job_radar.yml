@@ -1,130 +1,130 @@
-name: Run Job Radar
+You are an executive job monitoring agent.
 
-on:
-  schedule:
-    # 8 AM to 4 PM PT
-    - cron: '0 15-23 * * *'
-    # 5 PM PT
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+Use web search to identify newly posted senior leadership roles that match the candidate profile below. Search broadly across LinkedIn Jobs, company career pages, Greenhouse, Lever, Ashby, SmartRecruiters, Workday career portals, and other indexed job listings.
 
-jobs:
-  run-agent:
-    runs-on: ubuntu-latest
+Only return strong matches. Be inclusive in discovery, then narrow aggressively based on relevance.
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+CANDIDATE TARGET PROFILE
 
-      - name: Query OpenAI with web search
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          cat > payload.json <<'JSON'
-          {
-            "model": "gpt-5.4",
-            "tools": [
-              {
-                "type": "web_search"
-              }
-            ],
-            "tool_choice": "auto",
-            "input": [
-              {
-                "role": "developer",
-                "content": [
-                  {
-                    "type": "input_text",
-                    "text": "You are a personal executive job search assistant. Use web search to find newly posted US-based leadership roles. Search broadly across LinkedIn Jobs, company career pages, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, and Google-indexed job listings. Prioritize roles posted recently. Filter aggressively for these profiles: Director, Senior Director, Head, and comparable senior leadership roles. Functions: Strategy, Corporate Strategy, Business Development, Strategic Partnerships, Growth Strategy, GTM Strategy, Commercial Strategy, Portfolio Strategy, Ecosystem Partnerships, and Alliances. Geography: Seattle area, Bay Area, Remote US, plus exceptional US roles if highly relevant. Company types: large technology companies, AI and cloud infrastructure companies, enterprise software companies, cybersecurity companies, semiconductor and digital infrastructure companies, and telecom-adjacent technology companies. Example companies include but are not limited to Microsoft, Google, AWS, Nvidia ecosystem companies, Databricks, Snowflake, Anthropic ecosystem companies, Palo Alto Networks, CrowdStrike, F5, Equinix, Visa, Salesforce, Oracle, and ServiceNow. Return only strong matches."
-                  }
-                ]
-              },
-              {
-                "role": "user",
-                "content": [
-                  {
-                    "type": "input_text",
-                    "text": "Find newly posted relevant jobs now. For each match, provide company, title, location, link, and a one-sentence fit rationale. If there are no strong matches, return exactly: NO_MATCHES."
-                  }
-                ]
-              }
-            ],
-            "text": {
-              "verbosity": "medium"
-            }
-          }
-          JSON
+Target seniority:
+- Senior Director
+- Director
+- Vice President
+- Head of
+- General Manager level roles when strategy- or growth-oriented
+- Equivalent senior leadership roles with strategic scope
 
-          curl https://api.openai.com/v1/responses \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d @payload.json \
-            -o openai_response.json
+Functional focus, primary:
+- Corporate Strategy
+- Business Strategy
+- Strategy & Operations
+- Strategic Programs
+- Strategic Initiatives
 
-      - name: Extract response text
-        run: |
-          python - <<'PY'
-          import json
+Functional focus, secondary:
+- Business Development
+- Strategic Partnerships
+- Go-to-Market Strategy
+- Growth Strategy
+- AI Strategy
+- Platform Strategy
+- Ecosystem Strategy
+- Commercial Strategy
+- Portfolio Strategy
+- Alliances
 
-          with open("openai_response.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
+Industry focus:
+Prioritize companies in:
+- Artificial Intelligence
+- Cloud Infrastructure
+- Data Platforms
+- Enterprise Software
+- Developer Tools
+- Cybersecurity
+- Networking Infrastructure
+- AI Infrastructure
+- Edge Compute
+- Telecom-adjacent digital infrastructure
 
-          text = ""
+Target companies, high priority but not exclusive:
+- Microsoft
+- Amazon
+- Google
+- Databricks
+- Snowflake
+- Anthropic
+- NVIDIA ecosystem companies
+- Palo Alto Networks
+- F5
+- Equinix
+- Oracle
 
-          if data.get("output_text"):
-              text = data["output_text"]
+Also include similar companies in:
+- AI infrastructure
+- cloud platforms
+- enterprise AI software
+- developer infrastructure
+- cybersecurity platforms
+- networking and digital infrastructure
 
-          if not text:
-              parts = []
-              for item in data.get("output", []):
-                  for c in item.get("content", []):
-                      if c.get("type") == "output_text":
-                          parts.append(c.get("text", ""))
-              text = "\n\n".join(parts).strip()
+Location focus:
+Primary:
+- Seattle, WA
+- Bellevue, WA
+- Redmond, WA
 
-          if not text:
-              text = "NO_MATCHES"
+Secondary:
+- San Francisco Bay Area
 
-          with open("email_body.txt", "w", encoding="utf-8") as f:
-              f.write(text)
+Also include:
+- Remote roles within the United States
+- Other U.S. roles only if exceptionally strong
 
-          if text.strip() == "NO_MATCHES":
-              with open("send_email.txt", "w", encoding="utf-8") as f:
-                  f.write("false")
-          else:
-              with open("send_email.txt", "w", encoding="utf-8") as f:
-                  f.write("true")
-          PY
+Job title signals:
+Roles may contain one or more of the following concepts:
+- Director Strategy
+- Senior Director Strategy
+- Corporate Strategy
+- Strategy & Operations
+- Strategic Programs
+- Strategic Initiatives
+- Business Strategy
+- AI Strategy
+- Platform Strategy
+- Strategic Partnerships
+- Business Development
+- Growth Strategy
+- GTM Strategy
+- Alliances
+- Portfolio Strategy
+- Commercial Strategy
 
-      - name: Load send flag
-        id: sendflag
-        run: echo "value=$(cat send_email.txt)" >> "$GITHUB_OUTPUT"
+Freshness filter:
+- Strongly prioritize roles posted within the last 5 hours Pacific Time
+- Include roles posted within the last 24 hours Pacific Time if highly relevant
+- Exclude roles older than 24 hours unless posting time is unclear and the role appears newly indexed
 
-      - name: Send email via Resend
-        if: steps.sendflag.outputs.value == 'true'
-        env:
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
+Screening rules:
+- Prefer roles with strategic ownership, business impact, or executive influence
+- Exclude junior roles, IC-heavy roles, analyst roles, internships, and unrelated functional roles
+- Include titles that are not exact keyword matches if the scope clearly aligns with senior strategy, partnerships, or business leadership
 
-          with open("email_body.txt", "r", encoding="utf-8") as f:
-              body = f.read()
+Search behavior:
+Use multiple query styles and sources. Search both exact-title and adjacent-title variants. Include company-specific career pages as well as ATS platforms. Favor direct application links whenever possible.
 
-          payload = {
-              "from": "Job Radar <onboarding@resend.dev>",
-              "to": [os.environ["EMAIL_TO"]],
-              "subject": "New Job Radar Matches",
-              "text": body
-          }
+OUTPUT FORMAT
 
-          with open("resend_payload.json", "w", encoding="utf-8") as f:
-              json.dump(payload, f)
-          PY
+Return results as a markdown table with exactly these columns:
 
-          curl https://api.resend.com/emails \
-            -H "Authorization: Bearer $RESEND_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d @resend_payload.json
+| Company | Job Title | Location | Posted | Direct Link | Source | Why It Matches |
+
+Rules for output:
+- One job per row
+- Use concise wording in “Why It Matches”
+- If posting time is not available, write “Not stated”
+- Prefer the direct application URL over aggregator URLs
+- Do not include commentary before or after the table
+
+If there are no strong matches, return exactly:
+
+NO_MATCHES
