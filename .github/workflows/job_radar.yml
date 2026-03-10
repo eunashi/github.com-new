@@ -2,7 +2,7 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM – 4 PM PT
+    # 8 AM–4 PM PT
     - cron: '0 15-23 * * *'
     # 5 PM PT
     - cron: '0 0 * * *'
@@ -13,11 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Query OpenAI for new jobs
+      - name: Query OpenAI for jobs
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -26,50 +25,71 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "model": "gpt-5.4",
-              "input": "Search broadly across the internet for newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Focus on Seattle, Bay Area, or Remote US. Search LinkedIn Jobs, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, and company career pages. Return only strong matches. If none exist respond exactly: NO_MATCHES."
+              "input": "Search broadly across the internet for newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Focus on Seattle, Bay Area, or Remote US. Search LinkedIn Jobs, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, and company career pages. Return only strong matches. For each role include company, title, location, link, and one sentence on why it fits. If none exist respond exactly: NO_MATCHES."
             }' \
             -o openai_response.json
 
-      - name: Extract response text
+      - name: Extract response text and decide whether to send
         run: |
           python - <<'PY'
           import json
 
-          with open("openai_response.json") as f:
-              data=json.load(f)
+          with open("openai_response.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
 
-          text=""
+          text = ""
 
-          if "output_text" in data:
-              text=data["output_text"]
+          if data.get("output_text"):
+              text = data["output_text"]
 
           if not text:
-              for o in data.get("output",[]):
-                  for c in o.get("content",[]):
-                      if c.get("type")=="output_text":
-                          text+=c.get("text","")
+              parts = []
+              for item in data.get("output", []):
+                  for c in item.get("content", []):
+                      if c.get("type") == "output_text":
+                          parts.append(c.get("text", ""))
+              text = "\n\n".join(parts).strip()
 
-          text=text.strip()
+          with open("email_body.txt", "w", encoding="utf-8") as f:
+              f.write(text if text else "NO_MATCHES")
 
-          with open("email_body.txt","w") as f:
-              f.write(text)
+          send_email = "true"
+          if not text or text.strip() == "NO_MATCHES":
+              send_email = "false"
 
-          if text=="NO_MATCHES" or len(text)<5:
-              open("send_email.flag","w").write("0")
-          else:
-              open("send_email.flag","w").write("1")
+          with open("send_email.txt", "w", encoding="utf-8") as f:
+              f.write(send_email)
           PY
 
-      - name: Send email only if jobs exist
-        if: ${{ hashFiles('send_email.flag') != '' && steps.extract_response_text.outputs != '0' }}
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: New Job Radar Matches
-          to: ${{ secrets.EMAIL_TO }}
-          from: Job Radar <${{ secrets.EMAIL_USERNAME }}>
-          body_file: email_body.txt
+      - name: Load send flag
+        id: sendflag
+        run: echo "value=$(cat send_email.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Send email via Resend
+        if: steps.sendflag.outputs.value == 'true'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          with open("email_body.txt", "r", encoding="utf-8") as f:
+              body = f.read()
+
+          payload = {
+              "from": "Job Radar <onboarding@resend.dev>",
+              "to": [os.environ["EMAIL_TO"]],
+              "subject": "New Job Radar Matches",
+              "text": body
+          }
+
+          with open("resend_payload.json", "w", encoding="utf-8") as f:
+              json.dump(payload, f)
+          PY
+
+          curl https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d @resend_payload.json
