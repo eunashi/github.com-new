@@ -16,20 +16,52 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Query OpenAI for jobs
+      - name: Query OpenAI with web search
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
+          cat > payload.json <<'JSON'
+          {
+            "model": "gpt-5.4",
+            "tools": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "tool_choice": "auto",
+            "input": [
+              {
+                "role": "developer",
+                "content": [
+                  {
+                    "type": "input_text",
+                    "text": "You are a personal executive job search assistant. Use web search to find newly posted US-based leadership roles. Search broadly across LinkedIn Jobs, company career pages, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, and Google-indexed job listings. Prioritize roles posted recently. Filter aggressively for these profiles: Director, Senior Director, Head, and comparable senior leadership roles. Functions: Strategy, Corporate Strategy, Business Development, Strategic Partnerships, Growth Strategy, GTM Strategy, Commercial Strategy, Portfolio Strategy, Ecosystem Partnerships, and Alliances. Geography: Seattle area, Bay Area, Remote US, plus exceptional US roles if highly relevant. Company types: large technology companies, AI and cloud infrastructure companies, enterprise software companies, cybersecurity companies, semiconductor and digital infrastructure companies, and telecom-adjacent technology companies. Example companies include but are not limited to Microsoft, Google, AWS, Nvidia ecosystem companies, Databricks, Snowflake, Anthropic ecosystem companies, Palo Alto Networks, CrowdStrike, F5, Equinix, Visa, Salesforce, Oracle, and ServiceNow. Return only strong matches."
+                  }
+                ]
+              },
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "input_text",
+                    "text": "Find newly posted relevant jobs now. For each match, provide company, title, location, link, and a one-sentence fit rationale. If there are no strong matches, return exactly: NO_MATCHES."
+                  }
+                ]
+              }
+            ],
+            "text": {
+              "verbosity": "medium"
+            }
+          }
+          JSON
+
           curl https://api.openai.com/v1/responses \
             -H "Authorization: Bearer $OPENAI_API_KEY" \
             -H "Content-Type: application/json" \
-            -d '{
-              "model": "gpt-5.4",
-              "input": "Use Google indexed results to identify newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Search queries like: site:linkedin.com/jobs \"Director Strategy\", site:boards.greenhouse.io \"Director\", site:jobs.lever.co \"Director\", site:myworkdayjobs.com \"Director\", site:smartrecruiters.com \"Director\". Focus on Seattle, Bay Area, or Remote US. Return only roles likely posted within the last few days. Provide company, title, location, and link. If no strong matches exist respond exactly: NO_MATCHES."
-            }' \
+            -d @payload.json \
             -o openai_response.json
 
-      - name: Extract response text and prepare email
+      - name: Extract response text
         run: |
           python - <<'PY'
           import json
@@ -55,11 +87,18 @@ jobs:
 
           with open("email_body.txt", "w", encoding="utf-8") as f:
               f.write(text)
+
+          if text.strip() == "NO_MATCHES":
+              with open("send_email.txt", "w", encoding="utf-8") as f:
+                  f.write("false")
+          else:
+              with open("send_email.txt", "w", encoding="utf-8") as f:
+                  f.write("true")
           PY
 
-      - name: Force email sending for debug
+      - name: Load send flag
         id: sendflag
-        run: echo "value=true" >> "$GITHUB_OUTPUT"
+        run: echo "value=$(cat send_email.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Send email via Resend
         if: steps.sendflag.outputs.value == 'true'
@@ -77,7 +116,7 @@ jobs:
           payload = {
               "from": "Job Radar <onboarding@resend.dev>",
               "to": [os.environ["EMAIL_TO"]],
-              "subject": "Job Radar Debug Results",
+              "subject": "New Job Radar Matches",
               "text": body
           }
 
