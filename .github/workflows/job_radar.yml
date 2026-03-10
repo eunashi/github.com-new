@@ -20,7 +20,6 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-
           cat > payload.json << 'EOF'
           {
             "model": "gpt-5.4",
@@ -36,7 +35,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles that match the candidate profile below. Search broadly across LinkedIn Jobs, company career pages, Greenhouse, Lever, Ashby, SmartRecruiters, Workday career portals, and other indexed job listings. Only return strong matches.\n\nCANDIDATE TARGET PROFILE\n\nSeniority:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic scope\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGo-to-Market Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nData Platforms\nEnterprise Software\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh-priority companies (not exclusive):\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem companies\nPalo Alto Networks\nF5\nEquinix\nOracle\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within 24 hours PT.\nExclude older roles.\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with these columns:\n\n| Company | Job Title | Location | Posted | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly: NO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles that match the candidate profile below. Search broadly across LinkedIn Jobs, company career pages, Greenhouse, Lever, Ashby, SmartRecruiters, Workday career portals, and other indexed job listings. Only return strong matches.\n\nCANDIDATE TARGET PROFILE\n\nSeniority:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic scope\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGo-to-Market Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nData Platforms\nEnterprise Software\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh-priority companies (not exclusive):\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem companies\nPalo Alto Networks\nF5\nEquinix\nOracle\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within 24 hours PT only if highly relevant.\nExclude roles older than 24 hours.\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with these columns:\n\n| Company | Job Title | Location | Posted | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly: NO_MATCHES"
                   }
                 ]
               },
@@ -64,34 +63,91 @@ jobs:
           python - <<'PY'
           import json
 
-          with open("openai_response.json","r") as f:
-              data=json.load(f)
+          with open("openai_response.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
 
-          text=""
+          text = ""
 
           if data.get("output_text"):
-              text=data["output_text"]
+              text = data["output_text"]
 
           if not text:
-              parts=[]
-              for item in data.get("output",[]):
-                  for c in item.get("content",[]):
-                      if c.get("type")=="output_text":
-                          parts.append(c.get("text",""))
-              text="\n\n".join(parts)
+              parts = []
+              for item in data.get("output", []):
+                  for c in item.get("content", []):
+                      if c.get("type") == "output_text":
+                          parts.append(c.get("text", ""))
+              text = "\n\n".join(parts).strip()
 
-          if not text.strip():
-              text="NO_MATCHES"
+          if not text:
+              text = "NO_MATCHES"
 
-          with open("email_body.txt","w") as f:
+          with open("email_body.txt", "w", encoding="utf-8") as f:
               f.write(text)
 
-          if text.strip()=="NO_MATCHES":
-              with open("send_email.txt","w") as f:
+          if text.strip() == "NO_MATCHES":
+              with open("send_email.txt", "w", encoding="utf-8") as f:
                   f.write("false")
           else:
-              with open("send_email.txt","w") as f:
+              with open("send_email.txt", "w", encoding="utf-8") as f:
                   f.write("true")
+          PY
+
+      - name: Convert markdown table to HTML
+        if: hashFiles('email_body.txt') != ''
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import html
+
+          text = Path("email_body.txt").read_text(encoding="utf-8").strip()
+
+          if text == "NO_MATCHES":
+              html_body = "<html><body><p>No strong matches found.</p></body></html>"
+              Path("email_body.html").write_text(html_body, encoding="utf-8")
+              raise SystemExit
+
+          lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+          table_lines = [line for line in lines if line.startswith("|") and line.endswith("|")]
+
+          if len(table_lines) >= 3:
+              header = [c.strip() for c in table_lines[0].strip("|").split("|")]
+              rows = []
+              for line in table_lines[2:]:
+                  rows.append([c.strip() for c in line.strip("|").split("|")])
+
+              html_parts = []
+              html_parts.append("""
+              <html>
+              <body style="font-family: Arial, sans-serif; font-size: 14px; color: #222;">
+              <p><strong>New Job Radar Matches</strong></p>
+              <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+              <thead>
+              <tr style="background-color: #f2f2f2;">
+              """)
+
+              for col in header:
+                  html_parts.append(f"<th align='left'>{html.escape(col)}</th>")
+
+              html_parts.append("</tr></thead><tbody>")
+
+              for row in rows:
+                  html_parts.append("<tr>")
+                  for cell in row:
+                      cell = cell.strip()
+                      if cell.startswith("http://") or cell.startswith("https://"):
+                          html_parts.append(f"<td><a href='{html.escape(cell)}'>Link</a></td>")
+                      else:
+                          html_parts.append(f"<td>{html.escape(cell)}</td>")
+                  html_parts.append("</tr>")
+
+              html_parts.append("</tbody></table></body></html>")
+              html_body = "".join(html_parts)
+          else:
+              html_body = f"<html><body><pre>{html.escape(text)}</pre></body></html>"
+
+          Path("email_body.html").write_text(html_body, encoding="utf-8")
           PY
 
       - name: Load send flag
@@ -104,20 +160,23 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: |
-
           python - <<'PY'
-          import json,os
+          import json
+          import os
 
-          body=open("email_body.txt").read()
+          html_body = open("email_body.html", "r", encoding="utf-8").read()
+          text_body = open("email_body.txt", "r", encoding="utf-8").read()
 
-          payload={
-            "from":"Job Radar <onboarding@resend.dev>",
-            "to":[os.environ["EMAIL_TO"]],
-            "subject":"New Job Radar Matches",
-            "text":body
+          payload = {
+            "from": "Job Radar <onboarding@resend.dev>",
+            "to": [os.environ["EMAIL_TO"]],
+            "subject": "New Job Radar Matches",
+            "html": html_body,
+            "text": text_body
           }
 
-          open("resend_payload.json","w").write(json.dumps(payload))
+          with open("resend_payload.json", "w", encoding="utf-8") as f:
+              json.dump(payload, f)
           PY
 
           curl https://api.resend.com/emails \
