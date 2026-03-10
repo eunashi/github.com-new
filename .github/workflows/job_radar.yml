@@ -25,7 +25,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "model": "gpt-5.4",
-              "input": "Search broadly across the internet for newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Focus on Seattle, Bay Area, or Remote US. Search LinkedIn Jobs, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, and company career pages. Return only strong matches. For each role include company, title, location, link, and one sentence on why it fits. If none exist respond exactly: NO_MATCHES."
+             "input": "Use Google indexed results to identify newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Search queries like: site:linkedin.com/jobs \"Director Strategy\", site:boards.greenhouse.io \"Director\", site:jobs.lever.co \"Director\", site:myworkdayjobs.com \"Director\", site:smartrecruiters.com \"Director\". Focus on Seattle, Bay Area, or Remote US. Return only roles likely posted within the last few days. Provide company, title, location, and link. If no strong matches exist respond exactly: NO_MATCHES."
             }' \
             -o openai_response.json
 
