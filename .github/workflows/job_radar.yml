@@ -2,10 +2,12 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM–4 PM PT
+    # 8 AM – 4 PM PT
     - cron: '0 15-23 * * *'
     # 5 PM PT
     - cron: '0 0 * * *'
+    # 6 PM PT
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 jobs:
@@ -16,6 +18,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Ensure memory file exists
+        run: |
+          if [ ! -f seen_jobs.json ]; then
+            echo "[]" > seen_jobs.json
+          fi
+
       - name: Query OpenAI Job Radar
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -24,9 +32,7 @@ jobs:
           {
             "model": "gpt-5.4",
             "tools": [
-              {
-                "type": "web_search"
-              }
+              { "type": "web_search" }
             ],
             "tool_choice": "auto",
             "input": [
@@ -35,7 +41,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles that match the candidate profile below. Search broadly across LinkedIn Jobs, company career pages, Greenhouse, Lever, Ashby, SmartRecruiters, Workday career portals, and other indexed job listings. Only return strong matches.\n\nCANDIDATE TARGET PROFILE\n\nSeniority:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic scope\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGo-to-Market Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nData Platforms\nEnterprise Software\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh-priority companies (not exclusive):\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem companies\nPalo Alto Networks\nF5\nEquinix\nOracle\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within 24 hours PT only if highly relevant.\nExclude roles older than 24 hours.\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with these columns:\n\n| Company | Job Title | Location | Posted | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly: NO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within the last 24 hours if highly relevant.\n\nFreshness classification types:\nNew Listing\nRepost\nPromotion Refresh\nATS Refresh / Re-index\nPreviously Seen\nUnclear\n\nAlso assign Freshness Confidence:\nHigh\nMedium\nLow\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
                   }
                 ]
               },
@@ -44,7 +50,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "Search now for newly posted roles matching the criteria. Use multiple queries including: \"Senior Director Strategy\" Seattle, \"Director Strategy\" Bellevue, \"Corporate Strategy Director\" Remote, \"Strategic Partnerships Director\" Bay Area, site:linkedin.com/jobs \"Director Strategy\", site:boards.greenhouse.io \"Director Strategy\", site:jobs.lever.co \"Director Strategy\", site:myworkdayjobs.com \"Director Strategy\", site:smartrecruiters.com \"Director Strategy\". Return only strong matches in the required table format."
+                    "text": "Search now for newly posted roles. Use queries like:\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\n\nReturn only strong matches."
                   }
                 ]
               }
@@ -58,128 +64,135 @@ jobs:
             -d @payload.json \
             -o openai_response.json
 
-      - name: Extract response text
+      - name: Extract response
         run: |
           python - <<'PY'
-          import json
+          import json, pathlib
 
-          with open("openai_response.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
+          data=json.load(open("openai_response.json"))
 
-          text = ""
-
-          if data.get("output_text"):
-              text = data["output_text"]
+          text=data.get("output_text","")
 
           if not text:
-              parts = []
-              for item in data.get("output", []):
-                  for c in item.get("content", []):
-                      if c.get("type") == "output_text":
-                          parts.append(c.get("text", ""))
-              text = "\n\n".join(parts).strip()
+              parts=[]
+              for o in data.get("output",[]):
+                  for c in o.get("content",[]):
+                      if c.get("type")=="output_text":
+                          parts.append(c.get("text",""))
+              text="\n".join(parts)
 
-          if not text:
-              text = "NO_MATCHES"
+          if not text.strip():
+              text="NO_MATCHES"
 
-          with open("email_body.txt", "w", encoding="utf-8") as f:
-              f.write(text)
-
-          if text.strip() == "NO_MATCHES":
-              with open("send_email.txt", "w", encoding="utf-8") as f:
-                  f.write("false")
-          else:
-              with open("send_email.txt", "w", encoding="utf-8") as f:
-                  f.write("true")
+          pathlib.Path("email_body.txt").write_text(text)
           PY
 
-      - name: Convert markdown table to HTML
-        if: hashFiles('email_body.txt') != ''
+      - name: Filter already seen jobs
         run: |
           python - <<'PY'
-          from pathlib import Path
-          import html
+          import json,re,pathlib
 
-          text = Path("email_body.txt").read_text(encoding="utf-8").strip()
+          body=pathlib.Path("email_body.txt").read_text()
 
-          if text == "NO_MATCHES":
-              html_body = "<html><body><p>No strong matches found.</p></body></html>"
-              Path("email_body.html").write_text(html_body, encoding="utf-8")
+          if body.strip()=="NO_MATCHES":
+              pathlib.Path("send_email.txt").write_text("false")
               raise SystemExit
 
-          lines = [line.strip() for line in text.splitlines() if line.strip()]
+          seen=json.loads(pathlib.Path("seen_jobs.json").read_text())
 
-          table_lines = [line for line in lines if line.startswith("|") and line.endswith("|")]
+          lines=[l for l in body.splitlines() if "|" in l]
 
-          if len(table_lines) >= 3:
-              header = [c.strip() for c in table_lines[0].strip("|").split("|")]
-              rows = []
-              for line in table_lines[2:]:
-                  rows.append([c.strip() for c in line.strip("|").split("|")])
+          new_rows=[]
+          new_links=[]
 
-              html_parts = []
-              html_parts.append("""
-              <html>
-              <body style="font-family: Arial, sans-serif; font-size: 14px; color: #222;">
-              <p><strong>New Job Radar Matches</strong></p>
-              <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-              <thead>
-              <tr style="background-color: #f2f2f2;">
-              """)
+          for line in lines:
+              parts=[p.strip() for p in line.split("|") if p.strip()]
+              if len(parts)<7:
+                  continue
+              link=parts[6]
 
-              for col in header:
-                  html_parts.append(f"<th align='left'>{html.escape(col)}</th>")
+              if link not in seen:
+                  new_rows.append(line)
+                  new_links.append(link)
 
-              html_parts.append("</tr></thead><tbody>")
-
-              for row in rows:
-                  html_parts.append("<tr>")
-                  for cell in row:
-                      cell = cell.strip()
-                      if cell.startswith("http://") or cell.startswith("https://"):
-                          html_parts.append(f"<td><a href='{html.escape(cell)}'>Link</a></td>")
-                      else:
-                          html_parts.append(f"<td>{html.escape(cell)}</td>")
-                  html_parts.append("</tr>")
-
-              html_parts.append("</tbody></table></body></html>")
-              html_body = "".join(html_parts)
+          if not new_rows:
+              pathlib.Path("send_email.txt").write_text("false")
           else:
-              html_body = f"<html><body><pre>{html.escape(text)}</pre></body></html>"
+              seen.extend(new_links)
+              pathlib.Path("seen_jobs.json").write_text(json.dumps(seen,indent=2))
+              pathlib.Path("email_body.txt").write_text("\n".join(new_rows))
+              pathlib.Path("send_email.txt").write_text("true")
+          PY
 
-          Path("email_body.html").write_text(html_body, encoding="utf-8")
+      - name: Commit memory
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "github-actions"
+          git add seen_jobs.json
+          git commit -m "update job memory" || echo "no changes"
+          git push
+
+      - name: Convert table to HTML
+        run: |
+          python - <<'PY'
+          import html, pathlib
+
+          text=pathlib.Path("email_body.txt").read_text()
+
+          if not text.strip():
+              html_body="<p>No matches</p>"
+          else:
+              rows=[r for r in text.splitlines() if r.startswith("|")]
+
+              header=[c.strip() for c in rows[0].strip("|").split("|")]
+
+              html_body="<html><body>"
+              html_body+="<table border='1' cellpadding='6' style='border-collapse:collapse;font-family:Arial;'>"
+              html_body+="<tr>"+"".join(f"<th>{html.escape(h)}</th>" for h in header)+"</tr>"
+
+              for r in rows[2:]:
+                  cells=[c.strip() for c in r.strip("|").split("|")]
+                  html_body+="<tr>"
+                  for c in cells:
+                      if c.startswith("http"):
+                          html_body+=f"<td><a href='{html.escape(c)}'>Open job</a></td>"
+                      else:
+                          html_body+=f"<td>{html.escape(c)}</td>"
+                  html_body+="</tr>"
+
+              html_body+="</table></body></html>"
+
+          pathlib.Path("email_body.html").write_text(html_body)
           PY
 
       - name: Load send flag
         id: sendflag
         run: echo "value=$(cat send_email.txt)" >> "$GITHUB_OUTPUT"
 
-      - name: Send email via Resend
+      - name: Send email
         if: steps.sendflag.outputs.value == 'true'
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: |
           python - <<'PY'
-          import json
-          import os
+          import json,os,pathlib
 
-          html_body = open("email_body.html", "r", encoding="utf-8").read()
-          text_body = open("email_body.txt", "r", encoding="utf-8").read()
+          html_body=pathlib.Path("email_body.html").read_text()
+          text_body=pathlib.Path("email_body.txt").read_text()
 
-          payload = {
-            "from": "Job Radar <onboarding@resend.dev>",
-            "to": [os.environ["EMAIL_TO"]],
-            "subject": "New Job Radar Matches",
-            "html": html_body,
-            "text": text_body
+          payload={
+            "from":"Job Radar <onboarding@resend.dev>",
+            "to":[os.environ["EMAIL_TO"]],
+            "subject":"New Job Radar Matches",
+            "html":html_body,
+            "text":text_body
           }
 
-          with open("resend_payload.json", "w", encoding="utf-8") as f:
-              json.dump(payload, f)
+          pathlib.Path("payload.json").write_text(json.dumps(payload))
           PY
 
           curl https://api.resend.com/emails \
             -H "Authorization: Bearer $RESEND_API_KEY" \
             -H "Content-Type: application/json" \
-            -d @resend_payload.json
+            -d @payload.json
