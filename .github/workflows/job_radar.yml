@@ -2,7 +2,7 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM–4 PM PT
+    # 8 AM to 4 PM PT
     - cron: '0 15-23 * * *'
     # 5 PM PT
     - cron: '0 0 * * *'
@@ -25,11 +25,11 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "model": "gpt-5.4",
-             "input": "Use Google indexed results to identify newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Search queries like: site:linkedin.com/jobs \"Director Strategy\", site:boards.greenhouse.io \"Director\", site:jobs.lever.co \"Director\", site:myworkdayjobs.com \"Director\", site:smartrecruiters.com \"Director\". Focus on Seattle, Bay Area, or Remote US. Return only roles likely posted within the last few days. Provide company, title, location, and link. If no strong matches exist respond exactly: NO_MATCHES."
+              "input": "Use Google indexed results to identify newly posted Senior Director or Director roles in Strategy, Business Development, GTM, or Strategic Partnerships. Search queries like: site:linkedin.com/jobs \"Director Strategy\", site:boards.greenhouse.io \"Director\", site:jobs.lever.co \"Director\", site:myworkdayjobs.com \"Director\", site:smartrecruiters.com \"Director\". Focus on Seattle, Bay Area, or Remote US. Return only roles likely posted within the last few days. Provide company, title, location, and link. If no strong matches exist respond exactly: NO_MATCHES."
             }' \
             -o openai_response.json
 
-      - name: Extract response text and decide whether to send
+      - name: Extract response text and prepare email
         run: |
           python - <<'PY'
           import json
@@ -50,20 +50,16 @@ jobs:
                           parts.append(c.get("text", ""))
               text = "\n\n".join(parts).strip()
 
+          if not text:
+              text = "NO_MATCHES"
+
           with open("email_body.txt", "w", encoding="utf-8") as f:
-              f.write(text if text else "NO_MATCHES")
-
-          send_email = "true"
-          if not text or text.strip() == "NO_MATCHES":
-              send_email = "false"
-
-          with open("send_email.txt", "w", encoding="utf-8") as f:
-              f.write(send_email)
+              f.write(text)
           PY
 
-      - name: Load send flag
+      - name: Force email sending for debug
         id: sendflag
-        run: echo "value=$(cat send_email.txt)" >> "$GITHUB_OUTPUT"
+        run: echo "value=true" >> "$GITHUB_OUTPUT"
 
       - name: Send email via Resend
         if: steps.sendflag.outputs.value == 'true'
@@ -81,7 +77,7 @@ jobs:
           payload = {
               "from": "Job Radar <onboarding@resend.dev>",
               "to": [os.environ["EMAIL_TO"]],
-              "subject": "New Job Radar Matches",
+              "subject": "Job Radar Debug Results",
               "text": body
           }
 
