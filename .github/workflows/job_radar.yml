@@ -2,10 +2,8 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM–4 PM PT
+    # PDT schedule: 8 AM–5 PM PT
     - cron: '0 15-23 * * *'
-    # 5 PM PT
-    - cron: '0 0 * * *'
     # 6 PM PT
     - cron: '0 1 * * *'
   workflow_dispatch:
@@ -43,7 +41,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within the last 24 hours if highly relevant.\n\nFreshness classification types:\nNew Listing\nRepost\nPromotion Refresh\nATS Refresh / Re-index\nPreviously Seen\nUnclear\n\nAlso assign Freshness Confidence:\nHigh\nMedium\nLow\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within the last 24 hours only if highly relevant.\nDo not include jobs older than 24 hours.\nDo not classify a job as New Listing if the posting text indicates days or weeks ago.\n\nFreshness classification types:\nNew Listing\nRepost\nPromotion Refresh\nATS Refresh / Re-index\nPreviously Seen\nUnclear\n\nAlso assign Freshness Confidence:\nHigh\nMedium\nLow\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
                   }
                 ]
               },
@@ -89,10 +87,10 @@ jobs:
           pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
           PY
 
-      - name: Filter already seen jobs
+      - name: Filter stale and already seen jobs
         run: |
           python - <<'PY'
-          import json, pathlib
+          import json, pathlib, re
 
           body = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
 
@@ -112,6 +110,29 @@ jobs:
           separator = lines[1]
           data_rows = lines[2:]
 
+          def is_within_24h(posted_text):
+              t = posted_text.strip().lower()
+
+              if t in ["just now", "today", "not stated"]:
+                  return True
+
+              if "minute" in t or "minutes" in t or "min ago" in t:
+                  return True
+
+              if "hour" in t or "hours" in t or "hr ago" in t or "hrs ago" in t:
+                  return True
+
+              if "yesterday" in t:
+                  return False
+
+              if "day ago" in t or "days ago" in t:
+                  return False
+
+              if "week ago" in t or "weeks ago" in t:
+                  return False
+
+              return False
+
           new_rows = []
           new_links = []
 
@@ -120,7 +141,15 @@ jobs:
               if len(parts) < 9:
                   continue
 
+              posted = parts[3]
+              signal_type = parts[4]
               link = parts[6]
+
+              if not is_within_24h(posted):
+                  continue
+
+              if signal_type == "Previously Seen":
+                  continue
 
               if link not in seen:
                   new_rows.append(line)
@@ -193,6 +222,11 @@ jobs:
                   • <b>ATS Refresh / Re-index</b> – feed or index refresh rather than a new posting<br>
                   • <b>Previously Seen</b> – job already surfaced in earlier radar runs<br>
                   • <b>Unclear</b> – insufficient evidence to determine freshness<br>
+                  <br>
+                  <strong>Freshness Confidence Legend</strong><br>
+                  • <b>High</b> – strong direct or multiple consistent freshness signals<br>
+                  • <b>Medium</b> – some evidence of recency, but partially ambiguous<br>
+                  • <b>Low</b> – weak or conflicting freshness evidence, likely inferred indirectly<br>
                   </div>
                   """
 
