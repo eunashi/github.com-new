@@ -2,8 +2,10 @@ name: Run Job Radar
 
 on:
   schedule:
-    # PDT schedule: 8 AM–5 PM PT
+    # 8 AM–4 PM PT during daylight saving
     - cron: '0 15-23 * * *'
+    # 5 PM PT
+    - cron: '0 0 * * *'
     # 6 PM PT
     - cron: '0 1 * * *'
   workflow_dispatch:
@@ -41,7 +43,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within the last 24 hours only if highly relevant.\nDo not include jobs older than 24 hours.\nDo not classify a job as New Listing if the posting text indicates days or weeks ago.\n\nFreshness classification types:\nNew Listing\nRepost\nPromotion Refresh\nATS Refresh / Re-index\nPreviously Seen\nUnclear\n\nAlso assign Freshness Confidence:\nHigh\nMedium\nLow\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within the last 24 hours if highly relevant.\nFor older original postings, still include them when there is strong evidence of a recent repost, promotion refresh, or ATS refresh.\n\nFreshness classification types:\nNew Listing\nRepost\nPromotion Refresh\nATS Refresh / Re-index\nPreviously Seen\nUnclear\n\nAlso assign Freshness Confidence:\nHigh\nMedium\nLow\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
                   }
                 ]
               },
@@ -69,7 +71,7 @@ jobs:
           python - <<'PY'
           import json, pathlib
 
-          data = json.load(open("openai_response.json"))
+          data = json.load(open("openai_response.json", encoding="utf-8"))
 
           text = data.get("output_text", "")
 
@@ -87,15 +89,17 @@ jobs:
           pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
           PY
 
-      - name: Filter stale and already seen jobs
+      - name: Filter rows using freshness and seen logic
         run: |
           python - <<'PY'
-          import json, pathlib, re
+          import json, pathlib
 
           body = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
+          debug = []
 
           if body == "NO_MATCHES":
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
+              pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES", encoding="utf-8")
               raise SystemExit
 
           seen = json.loads(pathlib.Path("seen_jobs.json").read_text(encoding="utf-8"))
@@ -104,13 +108,14 @@ jobs:
 
           if len(lines) < 3:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
+              pathlib.Path("debug_summary.txt").write_text("No parseable markdown table rows found", encoding="utf-8")
               raise SystemExit
 
           header = lines[0]
           separator = lines[1]
           data_rows = lines[2:]
 
-          def is_within_24h(posted_text):
+          def posted_recent(posted_text: str) -> bool:
               t = posted_text.strip().lower()
 
               if t in ["just now", "today", "not stated"]:
@@ -122,38 +127,63 @@ jobs:
               if "hour" in t or "hours" in t or "hr ago" in t or "hrs ago" in t:
                   return True
 
-              if "yesterday" in t:
+              return False
+
+          def freshness_pass(posted: str, signal_type: str, confidence: str) -> bool:
+              signal_type = signal_type.strip()
+              confidence = confidence.strip()
+
+              if signal_type == "Previously Seen":
                   return False
 
-              if "day ago" in t or "days ago" in t:
-                  return False
+              if posted_recent(posted):
+                  return True
 
-              if "week ago" in t or "weeks ago" in t:
-                  return False
+              if signal_type in ["Repost", "Promotion Refresh", "ATS Refresh / Re-index", "New Listing"] and confidence in ["High", "Medium"]:
+                  return True
 
               return False
+
+          total_rows = 0
+          stale_or_low_conf = 0
+          already_seen = 0
+          malformed = 0
 
           new_rows = []
           new_links = []
 
           for line in data_rows:
+              total_rows += 1
               parts = [p.strip() for p in line.split("|") if p.strip()]
+
               if len(parts) < 9:
+                  malformed += 1
                   continue
 
+              company = parts[0]
               posted = parts[3]
               signal_type = parts[4]
+              confidence = parts[5]
               link = parts[6]
 
-              if not is_within_24h(posted):
+              if not freshness_pass(posted, signal_type, confidence):
+                  stale_or_low_conf += 1
                   continue
 
-              if signal_type == "Previously Seen":
+              if link in seen:
+                  already_seen += 1
                   continue
 
-              if link not in seen:
-                  new_rows.append(line)
-                  new_links.append(link)
+              new_rows.append(line)
+              new_links.append(link)
+
+          debug.append(f"Total parsed rows: {total_rows}")
+          debug.append(f"Malformed rows skipped: {malformed}")
+          debug.append(f"Rows filtered by freshness logic: {stale_or_low_conf}")
+          debug.append(f"Rows filtered as already seen: {already_seen}")
+          debug.append(f"Rows remaining to email: {len(new_rows)}")
+
+          pathlib.Path("debug_summary.txt").write_text("\n".join(debug), encoding="utf-8")
 
           if not new_rows:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
@@ -164,6 +194,11 @@ jobs:
               pathlib.Path("email_body.txt").write_text(final_table, encoding="utf-8")
               pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
           PY
+
+      - name: Show debug summary
+        run: |
+          echo "----- DEBUG SUMMARY -----"
+          cat debug_summary.txt || true
 
       - name: Commit memory
         run: |
