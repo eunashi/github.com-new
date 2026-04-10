@@ -2,7 +2,7 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM–4 PM PT during daylight saving
+    # 8 AM-4 PM PT during daylight saving
     - cron: '0 15-23 * * *'
     # 5 PM PT
     - cron: '0 0 * * *'
@@ -164,7 +164,6 @@ jobs:
                   malformed += 1
                   continue
 
-              company = parts[0]
               posted = parts[3]
               signal_type = parts[4]
               confidence = parts[5]
@@ -220,8 +219,8 @@ jobs:
 
           git commit -m "update job memory"
 
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-          git push origin HEAD:${{ github.ref_name }}
+          git pull --rebase origin main
+          git push origin HEAD:main
 
       - name: Convert table to HTML
         run: |
@@ -266,17 +265,17 @@ jobs:
                   <br><br>
                   <div style="font-size:12px;color:#444;">
                   <strong>Signal Type Legend</strong><br>
-                  • <b>New Listing</b> – likely a genuinely new job posting<br>
-                  • <b>Repost</b> – employer refreshed or reposted the listing<br>
-                  • <b>Promotion Refresh</b> – boosted or promoted listing resurfacing<br>
-                  • <b>ATS Refresh / Re-index</b> – feed or index refresh rather than a new posting<br>
-                  • <b>Previously Seen</b> – job already surfaced in earlier radar runs<br>
-                  • <b>Unclear</b> – insufficient evidence to determine freshness<br>
+                  • <b>New Listing</b> - likely a genuinely new job posting<br>
+                  • <b>Repost</b> - employer refreshed or reposted the listing<br>
+                  • <b>Promotion Refresh</b> - boosted or promoted listing resurfacing<br>
+                  • <b>ATS Refresh / Re-index</b> - feed or index refresh rather than a new posting<br>
+                  • <b>Previously Seen</b> - job already surfaced in earlier radar runs<br>
+                  • <b>Unclear</b> - insufficient evidence to determine freshness<br>
                   <br>
                   <strong>Freshness Confidence Legend</strong><br>
-                  • <b>High</b> – strong direct or multiple consistent freshness signals<br>
-                  • <b>Medium</b> – some evidence of recency, but partially ambiguous<br>
-                  • <b>Low</b> – weak or conflicting freshness evidence, likely inferred indirectly<br>
+                  • <b>High</b> - strong direct or multiple consistent freshness signals<br>
+                  • <b>Medium</b> - some evidence of recency, but partially ambiguous<br>
+                  • <b>Low</b> - weak or conflicting freshness evidence, likely inferred indirectly<br>
                   </div>
                   """
 
