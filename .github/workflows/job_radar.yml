@@ -2,7 +2,7 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM–4 PM PT during daylight saving
+    # 8 AM to 4 PM PT during daylight saving
     - cron: '0 15-23 * * *'
     # 5 PM PT
     - cron: '0 0 * * *'
@@ -21,10 +21,13 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Ensure memory file exists
+      - name: Ensure memory files exist
         run: |
           if [ ! -f seen_jobs.json ]; then
             echo "[]" > seen_jobs.json
+          fi
+          if [ ! -f last_heartbeat.txt ]; then
+            echo "" > last_heartbeat.txt
           fi
 
       - name: Query OpenAI Job Radar
@@ -70,7 +73,8 @@ jobs:
       - name: Extract response
         run: |
           python - <<'PY'
-          import json, pathlib
+          import json
+          import pathlib
 
           data = json.load(open("openai_response.json", encoding="utf-8"))
 
@@ -90,42 +94,96 @@ jobs:
           pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
           PY
 
-      - name: Filter rows using freshness and seen logic
+      - name: Filter rows using freshness, seen logic, and heartbeat
         run: |
           python - <<'PY'
-          import json, pathlib
+          import json
+          import pathlib
+          from datetime import datetime, timezone
 
           body = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
-          debug = []
+          seen = json.loads(pathlib.Path("seen_jobs.json").read_text(encoding="utf-8"))
+          heartbeat_file = pathlib.Path("last_heartbeat.txt")
+
+          def should_send_heartbeat() -> bool:
+              today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+              last_sent = heartbeat_file.read_text(encoding="utf-8").strip() if heartbeat_file.exists() else ""
+
+              if last_sent != today_utc:
+                  heartbeat_file.write_text(today_utc, encoding="utf-8")
+                  return True
+              return False
 
           if body == "NO_MATCHES":
-              pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
-              pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES", encoding="utf-8")
+              heartbeat_due = should_send_heartbeat()
+              if heartbeat_due:
+                  heartbeat_text = (
+                      "Job Radar heartbeat\n\n"
+                      "No strong new matches were found in this run.\n"
+                      "This email confirms the workflow is still running normally."
+                  )
+                  pathlib.Path("email_body.txt").write_text(heartbeat_text, encoding="utf-8")
+                  pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
+                  pathlib.Path("email_subject.txt").write_text("Job Radar Heartbeat", encoding="utf-8")
+                  pathlib.Path("debug_summary.txt").write_text(
+                      "OpenAI returned NO_MATCHES. Sending daily heartbeat.",
+                      encoding="utf-8"
+                  )
+              else:
+                  pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
+                  pathlib.Path("email_subject.txt").write_text("Job Radar", encoding="utf-8")
+                  pathlib.Path("debug_summary.txt").write_text(
+                      "OpenAI returned NO_MATCHES. No heartbeat due.",
+                      encoding="utf-8"
+                  )
               raise SystemExit
-
-          seen = json.loads(pathlib.Path("seen_jobs.json").read_text(encoding="utf-8"))
 
           lines = [l for l in body.splitlines() if "|" in l]
 
           if len(lines) < 3:
-              pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
-              pathlib.Path("debug_summary.txt").write_text("No parseable markdown table rows found", encoding="utf-8")
+              heartbeat_due = should_send_heartbeat()
+              if heartbeat_due:
+                  heartbeat_text = (
+                      "Job Radar heartbeat\n\n"
+                      "The workflow ran, but no parseable markdown table rows were found.\n"
+                      "Please review the latest run logs."
+                  )
+                  pathlib.Path("email_body.txt").write_text(heartbeat_text, encoding="utf-8")
+                  pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
+                  pathlib.Path("email_subject.txt").write_text("Job Radar Heartbeat", encoding="utf-8")
+                  pathlib.Path("debug_summary.txt").write_text(
+                      "No parseable markdown table rows found. Sending daily heartbeat.",
+                      encoding="utf-8"
+                  )
+              else:
+                  pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
+                  pathlib.Path("email_subject.txt").write_text("Job Radar", encoding="utf-8")
+                  pathlib.Path("debug_summary.txt").write_text(
+                      "No parseable markdown table rows found. No heartbeat due.",
+                      encoding="utf-8"
+                  )
               raise SystemExit
 
           header = lines[0]
           separator = lines[1]
           data_rows = lines[2:]
+          total_jobs_found = len(data_rows)
 
           def posted_recent(posted_text: str) -> bool:
               t = posted_text.strip().lower()
-              return any(x in t for x in ["just now", "today", "minute", "minutes", "min ago", "hour", "hours", "hr ago", "hrs ago", "not stated"])
+              return any(x in t for x in [
+                  "just now", "today", "minute", "minutes", "min ago",
+                  "hour", "hours", "hr ago", "hrs ago", "not stated"
+              ])
 
           def freshness_pass(posted: str, signal_type: str, confidence: str) -> bool:
               if signal_type.strip() == "Previously Seen":
                   return False
               if posted_recent(posted):
                   return True
-              return signal_type.strip() in ["Repost", "Promotion Refresh", "ATS Refresh / Re-index", "New Listing"] and confidence.strip() in ["High", "Medium"]
+              return signal_type.strip() in [
+                  "Repost", "Promotion Refresh", "ATS Refresh / Re-index", "New Listing"
+              ] and confidence.strip() in ["High", "Medium"]
 
           new_rows = []
           new_links = []
@@ -148,14 +206,56 @@ jobs:
               new_rows.append(line)
               new_links.append(link)
 
-          if not new_rows:
-              pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
-          else:
+          new_jobs_found = len(new_rows)
+          heartbeat_due = should_send_heartbeat()
+
+          send_email_flag = (
+              new_jobs_found > 0
+              or total_jobs_found >= 5
+              or heartbeat_due
+          )
+
+          reasons = []
+          if new_jobs_found > 0:
+              reasons.append(f"{new_jobs_found} new job(s)")
+          if total_jobs_found >= 5:
+              reasons.append(f"{total_jobs_found} total jobs found")
+          if heartbeat_due:
+              reasons.append("daily heartbeat")
+
+          if new_links:
               seen.extend(new_links)
               pathlib.Path("seen_jobs.json").write_text(json.dumps(seen, indent=2), encoding="utf-8")
+
+          if new_rows:
               final_table = "\n".join([header, separator] + new_rows)
               pathlib.Path("email_body.txt").write_text(final_table, encoding="utf-8")
-              pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
+              pathlib.Path("email_subject.txt").write_text("New Job Radar Matches", encoding="utf-8")
+          elif total_jobs_found >= 5:
+              full_table = "\n".join([header, separator] + data_rows)
+              pathlib.Path("email_body.txt").write_text(full_table, encoding="utf-8")
+              pathlib.Path("email_subject.txt").write_text("Job Radar Update", encoding="utf-8")
+          elif heartbeat_due:
+              heartbeat_text = (
+                  "Job Radar heartbeat\n\n"
+                  "The workflow ran successfully, but there were no new qualifying matches in this run."
+              )
+              pathlib.Path("email_body.txt").write_text(heartbeat_text, encoding="utf-8")
+              pathlib.Path("email_subject.txt").write_text("Job Radar Heartbeat", encoding="utf-8")
+          else:
+              pathlib.Path("email_subject.txt").write_text("Job Radar", encoding="utf-8")
+
+          pathlib.Path("send_email.txt").write_text("true" if send_email_flag else "false", encoding="utf-8")
+          pathlib.Path("debug_summary.txt").write_text(
+              "\n".join([
+                  f"Total jobs fetched: {total_jobs_found}",
+                  f"New jobs after filter: {new_jobs_found}",
+                  f"Heartbeat due: {heartbeat_due}",
+                  f"Send email: {send_email_flag}",
+                  f"Email trigger reason: {', '.join(reasons) if reasons else 'no trigger'}"
+              ]),
+              encoding="utf-8"
+          )
           PY
 
       - name: Commit memory
@@ -163,7 +263,7 @@ jobs:
           git config --global user.email "actions@github.com"
           git config --global user.name "github-actions[bot]"
 
-          git add seen_jobs.json
+          git add seen_jobs.json last_heartbeat.txt
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
@@ -185,15 +285,18 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: |
           python - <<'PY'
-          import json, os, pathlib
+          import json
+          import os
+          import pathlib
 
-          html_body = pathlib.Path("email_body.txt").read_text(encoding="utf-8")
+          email_body = pathlib.Path("email_body.txt").read_text(encoding="utf-8")
+          email_subject = pathlib.Path("email_subject.txt").read_text(encoding="utf-8").strip()
 
           payload = {
             "from": "Job Radar <onboarding@resend.dev>",
             "to": [os.environ["EMAIL_TO"]],
-            "subject": "New Job Radar Matches",
-            "text": html_body
+            "subject": email_subject,
+            "text": email_body
           }
 
           pathlib.Path("resend_payload.json").write_text(json.dumps(payload), encoding="utf-8")
