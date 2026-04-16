@@ -2,11 +2,8 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM–4 PM PT during daylight saving
     - cron: '0 15-23 * * *'
-    # 5 PM PT
     - cron: '0 0 * * *'
-    # 6 PM PT
     - cron: '0 1 * * *'
   workflow_dispatch:
 
@@ -44,7 +41,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nNutanix\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 12 hours PT.\nInclude jobs posted within the last 72 hours if highly relevant.\nAlso include older jobs only when there is strong evidence of a recent repost, promotion refresh, or ATS refresh.\n\nDirect link rules:\nAlways prefer the most direct job URL from the company ATS or official job board.\nAvoid placeholder or truncated links.\nDo not use generic LinkedIn browse/search URLs when a more direct link exists.\n\nFreshness classification types:\nNew Listing\nRepost\nPromotion Refresh\nATS Refresh / Re-index\nPreviously Seen\nUnclear\n\nAlso assign Freshness Confidence:\nHigh\nMedium\nLow\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nNutanix\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 24 hours PT.\nInclude jobs posted within the last 72 hours if relevant.\nInclude older jobs if there is strong evidence of repost, promotion refresh, or ATS refresh.\n\nDirect link rules:\nAlways prefer the most direct job URL from the company ATS or official job board.\nAvoid generic LinkedIn search URLs where possible.\n\nFreshness classification types:\nNew Listing\nRepost\nPromotion Refresh\nATS Refresh / Re-index\nPreviously Seen\nUnclear\n\nAlso assign Freshness Confidence:\nHigh\nMedium\nLow\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
                   }
                 ]
               },
@@ -53,7 +50,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "Search now for newly posted roles. Use queries like:\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Senior Director Strategy\" \"Remote\"\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\n\nReturn only strong matches, but do not be so strict that clearly relevant director-level strategy roles are excluded."
+                    "text": "Search now for newly posted roles. Use queries like:\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Senior Director Strategy\" \"Remote\"\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\n\nReturn clearly relevant director-level and above strategy roles. Do not be overly strict."
                   }
                 ]
               }
@@ -73,7 +70,6 @@ jobs:
           import json, pathlib
 
           data = json.load(open("openai_response.json", encoding="utf-8"))
-
           text = data.get("output_text", "")
 
           if not text:
@@ -90,7 +86,7 @@ jobs:
           pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
           PY
 
-      - name: Filter rows using freshness and seen logic
+      - name: Filter rows using freshness, seen logic, and heartbeat
         run: |
           python - <<'PY'
           import json
@@ -101,18 +97,12 @@ jobs:
           body = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
           debug = []
 
-          if body == "NO_MATCHES":
-              pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
-              pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES", encoding="utf-8")
-              raise SystemExit
-
           seen_path = pathlib.Path("seen_jobs.json")
           raw_seen = json.loads(seen_path.read_text(encoding="utf-8"))
 
           now = datetime.now(timezone.utc)
           cutoff = now - timedelta(days=21)
 
-          # Backward compatibility with old format: list of strings
           normalized_seen = []
           for item in raw_seen:
               if isinstance(item, str):
@@ -120,7 +110,6 @@ jobs:
               elif isinstance(item, dict) and "key" in item:
                   normalized_seen.append(item)
 
-          # Drop old entries
           kept_seen = []
           seen_keys = set()
           for item in normalized_seen:
@@ -136,10 +125,17 @@ jobs:
                   kept_seen.append(item)
                   seen_keys.add(item["key"])
 
+          if body == "NO_MATCHES":
+              pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
+              pathlib.Path("heartbeat.txt").write_text("true", encoding="utf-8")
+              pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES", encoding="utf-8")
+              raise SystemExit
+
           lines = [l for l in body.splitlines() if "|" in l]
 
           if len(lines) < 3:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
+              pathlib.Path("heartbeat.txt").write_text("true", encoding="utf-8")
               pathlib.Path("debug_summary.txt").write_text("No parseable markdown table rows found", encoding="utf-8")
               raise SystemExit
 
@@ -150,7 +146,7 @@ jobs:
           def posted_recent(posted_text: str) -> bool:
               t = posted_text.strip().lower()
 
-              if t in ["just now", "today", "not stated", "new", "posted today", "crawled today"]:
+              if t in ["just now", "today", "posted today", "new", "not stated", "crawled today"]:
                   return True
 
               if any(x in t for x in ["minute", "minutes", "min ago"]):
@@ -159,7 +155,6 @@ jobs:
               if any(x in t for x in ["hour", "hours", "hr ago", "hrs ago"]):
                   return True
 
-              # allow up to 3 days
               m = re.search(r'(\\d+)\\s+day', t)
               if m and int(m.group(1)) <= 3:
                   return True
@@ -179,7 +174,7 @@ jobs:
               if signal_type in ["Repost", "Promotion Refresh", "ATS Refresh / Re-index"] and confidence in ["High", "Medium"]:
                   return True
 
-              if signal_type == "New Listing" and confidence == "High":
+              if signal_type == "New Listing" and confidence in ["High", "Medium"]:
                   return True
 
               return False
@@ -189,15 +184,15 @@ jobs:
               link = link.replace("&utm_source=openai", "")
               link = re.sub(r"[?#].*$", "", link)
 
-              placeholders = {
+              bad_links = {
                   "",
                   "open job",
                   "https://www.linkedin.com/jobs/view/",
                   "https://www.linkedin.com/jobs/view/...",
-                  "https://www.linkedin.com/jobs/view",
+                  "https://www.linkedin.com/jobs/view"
               }
 
-              if link.lower() in placeholders:
+              if link.lower() in bad_links:
                   return ""
 
               if "linkedin.com/jobs/search" in link.lower():
@@ -211,20 +206,19 @@ jobs:
               return value
 
           def build_key(company: str, title: str, location: str, link: str) -> str:
-              nlink = normalize_link(link)
               company = normalize_text(company)
               title = normalize_text(title)
               location = normalize_text(location)
+              nlink = normalize_link(link)
 
               if nlink:
                   return f"{company}|{title}|{location}|{nlink}"
-
               return f"{company}|{title}|{location}"
 
           total_rows = 0
+          malformed = 0
           stale_or_low_conf = 0
           already_seen = 0
-          malformed = 0
 
           new_rows = []
           new_seen_entries = []
@@ -269,12 +263,14 @@ jobs:
 
           if not new_rows:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
+              pathlib.Path("heartbeat.txt").write_text("true", encoding="utf-8")
           else:
               final_seen = kept_seen + new_seen_entries
               seen_path.write_text(json.dumps(final_seen, indent=2), encoding="utf-8")
               final_table = "\\n".join([header, separator] + new_rows)
               pathlib.Path("email_body.txt").write_text(final_table, encoding="utf-8")
               pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
+              pathlib.Path("heartbeat.txt").write_text("false", encoding="utf-8")
           PY
 
       - name: Show debug summary
@@ -299,14 +295,15 @@ jobs:
           git push origin HEAD:main
 
       - name: Convert table to HTML
+        if: always()
         run: |
           python - <<'PY'
           import html
           import pathlib
 
-          text = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
+          text = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip() if pathlib.Path("email_body.txt").exists() else ""
 
-          if not text:
+          if not text or text == "NO_MATCHES":
               html_body = "<html><body><p>No matches</p></body></html>"
           else:
               rows = [r for r in text.splitlines() if r.startswith("|")]
@@ -338,7 +335,6 @@ jobs:
                       html_body += "</tr>"
 
                   html_body += "</table>"
-
                   html_body += """
                   <br><br>
                   <div style="font-size:12px;color:#444;">
@@ -356,7 +352,6 @@ jobs:
                   • <b>Low</b> – weak or conflicting freshness evidence, likely inferred indirectly<br>
                   </div>
                   """
-
                   html_body += "</body></html>"
 
           pathlib.Path("email_body.html").write_text(html_body, encoding="utf-8")
@@ -395,3 +390,37 @@ jobs:
             -H "Authorization: Bearer $RESEND_API_KEY" \
             -H "Content-Type: application/json" \
             -d @resend_payload.json
+
+      - name: Send heartbeat email
+        if: always()
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          HEARTBEAT=$(cat heartbeat.txt 2>/dev/null || echo "false")
+          if [ "$HEARTBEAT" != "true" ]; then
+            exit 0
+          fi
+
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          debug = pathlib.Path("debug_summary.txt").read_text(encoding="utf-8") if pathlib.Path("debug_summary.txt").exists() else "No debug summary available."
+
+          payload = {
+            "from": "Job Radar <onboarding@resend.dev>",
+            "to": [os.environ["EMAIL_TO"]],
+            "subject": "Job Radar Heartbeat",
+            "html": f"<html><body><p>No strong new matches were found in this run.</p><pre>{debug}</pre></body></html>",
+            "text": f"Job Radar heartbeat\n\nNo strong new matches were found in this run.\n\n{debug}"
+          }
+
+          pathlib.Path("heartbeat_payload.json").write_text(json.dumps(payload), encoding="utf-8")
+          PY
+
+          curl https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d @heartbeat_payload.json
