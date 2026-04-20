@@ -50,7 +50,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "Search now for newly posted roles. Use queries like:\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Senior Director Strategy\" \"Remote\"\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\n\nReturn clearly relevant director-level and above strategy roles. Do not be overly strict."
+                    "text": "Search now for newly posted roles. Use queries like:\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Senior Director Strategy\" \"Remote\"\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\n\nReturn relevant director-level and above strategy roles, including adjacent roles in strategic initiatives, business operations, GTM strategy, partnerships, growth, and AI/platform strategy. When in doubt, include rather than exclude."
                   }
                 ]
               }
@@ -86,7 +86,7 @@ jobs:
           pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
           PY
 
-      - name: Filter rows using freshness, seen logic, and heartbeat
+      - name: Filter rows using older seen logic and lighter freshness rules
         run: |
           python - <<'PY'
           import json
@@ -101,7 +101,7 @@ jobs:
           raw_seen = json.loads(seen_path.read_text(encoding="utf-8"))
 
           now = datetime.now(timezone.utc)
-          cutoff = now - timedelta(days=21)
+          cutoff = now - timedelta(days=30)
 
           normalized_seen = []
           for item in raw_seen:
@@ -143,42 +143,6 @@ jobs:
           separator = lines[1]
           data_rows = lines[2:]
 
-          def posted_recent(posted_text: str) -> bool:
-              t = posted_text.strip().lower()
-
-              if t in ["just now", "today", "posted today", "new", "not stated", "crawled today"]:
-                  return True
-
-              if any(x in t for x in ["minute", "minutes", "min ago"]):
-                  return True
-
-              if any(x in t for x in ["hour", "hours", "hr ago", "hrs ago"]):
-                  return True
-
-              m = re.search(r'(\\d+)\\s+day', t)
-              if m and int(m.group(1)) <= 3:
-                  return True
-
-              return False
-
-          def freshness_pass(posted: str, signal_type: str, confidence: str) -> bool:
-              signal_type = signal_type.strip()
-              confidence = confidence.strip()
-
-              if signal_type == "Previously Seen":
-                  return False
-
-              if posted_recent(posted):
-                  return True
-
-              if signal_type in ["Repost", "Promotion Refresh", "ATS Refresh / Re-index"] and confidence in ["High", "Medium"]:
-                  return True
-
-              if signal_type == "New Listing" and confidence in ["High", "Medium"]:
-                  return True
-
-              return False
-
           def normalize_link(link: str) -> str:
               link = link.strip().strip("`").strip()
               link = link.replace("&utm_source=openai", "")
@@ -202,7 +166,7 @@ jobs:
 
           def normalize_text(value: str) -> str:
               value = value.strip().lower()
-              value = re.sub(r"\\s+", " ", value)
+              value = re.sub(r"\s+", " ", value)
               return value
 
           def build_key(company: str, title: str, location: str, link: str) -> str:
@@ -215,9 +179,39 @@ jobs:
                   return f"{company}|{title}|{location}|{nlink}"
               return f"{company}|{title}|{location}"
 
+          def light_freshness_pass(posted: str, signal_type: str, confidence: str) -> bool:
+              posted_l = posted.strip().lower()
+              signal_l = signal_type.strip().lower()
+              conf_l = confidence.strip().lower()
+
+              if signal_l == "previously seen":
+                  return False
+
+              if any(x in posted_l for x in [
+                  "just now", "today", "posted today", "new", "crawled today",
+                  "minute", "minutes", "min ago",
+                  "hour", "hours", "hr ago", "hrs ago"
+              ]):
+                  return True
+
+              m = re.search(r'(\d+)\s+day', posted_l)
+              if m and int(m.group(1)) <= 14:
+                  return True
+
+              if signal_l in ["new listing", "repost", "promotion refresh", "ats refresh / re-index"]:
+                  return True
+
+              if conf_l in ["high", "medium"]:
+                  return True
+
+              if posted_l in ["not stated", "unclear", "unknown", ""]:
+                  return True
+
+              return True
+
           total_rows = 0
           malformed = 0
-          stale_or_low_conf = 0
+          stale = 0
           already_seen = 0
 
           new_rows = []
@@ -239,8 +233,8 @@ jobs:
               confidence = parts[5]
               link = parts[6]
 
-              if not freshness_pass(posted, signal_type, confidence):
-                  stale_or_low_conf += 1
+              if not light_freshness_pass(posted, signal_type, confidence):
+                  stale += 1
                   continue
 
               key = build_key(company, title, location, link)
@@ -255,11 +249,11 @@ jobs:
 
           debug.append(f"Total parsed rows: {total_rows}")
           debug.append(f"Malformed rows skipped: {malformed}")
-          debug.append(f"Rows filtered by freshness logic: {stale_or_low_conf}")
+          debug.append(f"Rows filtered by light freshness logic: {stale}")
           debug.append(f"Rows filtered as already seen: {already_seen}")
           debug.append(f"Rows remaining to email: {len(new_rows)}")
 
-          pathlib.Path("debug_summary.txt").write_text("\\n".join(debug), encoding="utf-8")
+          pathlib.Path("debug_summary.txt").write_text("\n".join(debug), encoding="utf-8")
 
           if not new_rows:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
@@ -267,7 +261,7 @@ jobs:
           else:
               final_seen = kept_seen + new_seen_entries
               seen_path.write_text(json.dumps(final_seen, indent=2), encoding="utf-8")
-              final_table = "\\n".join([header, separator] + new_rows)
+              final_table = "\n".join([header, separator] + new_rows)
               pathlib.Path("email_body.txt").write_text(final_table, encoding="utf-8")
               pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
               pathlib.Path("heartbeat.txt").write_text("false", encoding="utf-8")
