@@ -41,7 +41,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent for a senior strategy candidate. Use web search to identify newly surfaced roles from the last 24 hours only.\n\nYour job is to maximize recall within that strict 24-hour window. Do not become overly restrictive on exact title wording. Behave like a strong executive recruiter using judgment, not a brittle keyword filter.\n\nTARGET SENIORITY\nInclude:\n- Senior Director\n- Director\n- Head of\n- Principal-level strategy roles\n- Vice President only if the role is clearly within strategic scope\n- General Manager only if the role has clear strategy or business ownership\n\nPRIMARY FUNCTIONAL AREAS\n- Corporate Strategy\n- Business Strategy\n- Strategy & Operations\n- Strategic Programs\n- Strategic Initiatives\n- AI Strategy\n- Product Strategy\n- Platform Strategy\n- Ecosystem Strategy\n- GTM Strategy\n- Growth Strategy\n- Commercial Strategy\n- Portfolio Strategy\n- Transformation\n\nSECONDARY BUT STILL RELEVANT\nInclude if the underlying mandate is clearly strategic:\n- Strategic Partnerships\n- Alliances\n- Business Development\n- Chief of Staff\n- Business Operations\n- AI Transformation\n- Corporate Development\n\nCRITICAL MATCHING RULES\n- Do NOT require exact title matches.\n- Do NOT exclude a role just because 'Strategy' is not in the title.\n- Do NOT exclude a role just because 'AI' is not in the title.\n- Include adjacent strategic roles when responsibilities are clearly strategic and senior.\n- When in doubt between excluding a plausible match vs including it, include it.\n\nINDUSTRY FOCUS\n- Artificial Intelligence\n- Cloud Infrastructure\n- Enterprise Software\n- Data Platforms\n- Developer Tools\n- Cybersecurity\n- Networking Infrastructure\n- AI Infrastructure\n- Edge Compute\n- Marketplaces / travel tech\n\nHIGH PRIORITY COMPANIES BUT NOT EXCLUSIVE\n- Microsoft\n- Amazon\n- Google\n- Databricks\n- Snowflake\n- Anthropic\n- NVIDIA ecosystem\n- Palo Alto Networks\n- F5\n- Equinix\n- Oracle\n- Salesforce\n- Adobe\n- Expedia\n- Cisco\n- Visa\n- Workday\n- PayPal\n- Nutanix\n\nLOCATION FOCUS\n- Seattle WA\n- Bellevue WA\n- Redmond WA\n- San Francisco Bay Area\n- Remote United States\n- Other strong US roles if fit is high\n\nFRESHNESS RULES\nOnly include roles with credible evidence that they newly surfaced within the last 24 hours.\nValid freshness evidence includes:\n- posted today\n- posted 1 day ago\n- reposted today\n- crawled today\n- indexed today\n- ATS refresh today\n- feed refresh today\n- promotion refresh today\n\nIMPORTANT:\nUse surface recency, not just original posting date.\nIf a job newly appeared in feeds or search results today, it can count.\nIf freshness is ambiguous but there is credible evidence it surfaced within the last 24 hours, include it and lower the confidence.\nDo NOT include roles older than 24 hours unless there is explicit evidence they resurfaced within the last 24 hours.\n\nSOURCE RULES\nSearch broadly across:\n- LinkedIn Jobs\n- Greenhouse\n- Lever\n- SmartRecruiters\n- Workday\n- Built In\n- Ashby\n- company career pages\n- other major ATS/job boards\n\nDo not rely on a single source family.\n\nDIRECT LINK RULES\nAlways prefer the most direct job URL from the company ATS or official job board.\nAvoid generic LinkedIn search URLs where possible.\nIf the official ATS link is unavailable, a direct LinkedIn job view URL is acceptable.\n\nDEDUPLICATION LOGIC\n- Remove only exact duplicates based on URL or clearly identical posting\n- Do not aggressively collapse cross-posted or refreshed roles if they provide meaningful freshness evidence\n\nFRESHNESS CLASSIFICATION TYPES\n- New Listing\n- Repost\n- Promotion Refresh\n- ATS Refresh / Re-index\n- Previously Seen\n- Unclear\n\nFRESHNESS CONFIDENCE\n- High\n- Medium\n- Low\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nThe 'Why It Matches' field should be 1 to 2 concise executive-ready sentences.\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles that match the candidate profile below. Search broadly across LinkedIn Jobs, company career pages, Greenhouse, Lever, Ashby, SmartRecruiters, Workday career portals, Built In, and other indexed job listings. Only return strong matches.\n\nCANDIDATE TARGET PROFILE\n\nSeniority:\nSenior Director\nDirector\nVice President\nHead of\nPrincipal-level strategy roles\nGeneral Manager level roles with strategic scope\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGo-to-Market Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nTransformation\nAlliances\nChief of Staff\nBusiness Operations\nCorporate Development\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nData Platforms\nEnterprise Software\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\nMarketplaces / travel tech\n\nHigh-priority companies, not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem companies\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nNutanix\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\nOther strong US roles if fit is high\n\nFreshness guidance:\nPrioritize jobs posted or newly surfaced within the last 24 hours.\nInclude jobs that appear newly indexed, reposted, refreshed, crawled, promoted, or surfaced today.\nDo not be overly restrictive if the role is a strong fit and freshness is somewhat ambiguous.\n\nMatching rules:\nDo NOT require exact title matches.\nDo NOT exclude a role just because Strategy is not in the title.\nDo NOT exclude a role just because AI is not in the title.\nInclude adjacent strategic roles when responsibilities are clearly senior and strategic.\nWhen in doubt between excluding a plausible match and including it, include it.\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with these columns:\n\n| Company | Job Title | Location | Posted | Direct Link | Source | Why It Matches |\n\nThe Why It Matches field should be 1 to 2 concise executive-ready sentences.\n\nIf no strong matches exist return exactly: NO_MATCHES"
                   }
                 ]
               },
@@ -50,7 +50,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "Search now for newly surfaced roles from the last 24 hours only. Maximize recall within that 24-hour window. Search broadly across LinkedIn, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, Built In, and company career sites.\n\nUse broad query patterns such as:\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Director Strategy and Operations\" Remote\n\"AI Strategy Director\" Seattle\n\"Director Strategic Initiatives\" Remote\n\"Director Business Operations\" strategy Remote\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\n\nAlso search adjacent strategic titles, not just exact strategy titles. Include partnerships, alliances, transformation, GTM strategy, platform strategy, growth strategy, chief of staff, strategic business operations, and AI/platform ecosystem roles when the mandate is clearly strategic and senior. When in doubt, include rather than exclude."
+                    "text": "Search now for newly surfaced senior strategy, AI strategy, corporate strategy, business operations, GTM strategy, strategic partnerships, alliances, transformation, platform strategy, growth strategy, commercial strategy, portfolio strategy, chief of staff, and corporate development roles.\n\nUse multiple broad queries including:\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Director Strategy and Operations\" Remote\n\"AI Strategy Director\" Seattle\n\"Director Strategic Initiatives\" Remote\n\"Director Business Operations\" strategy Remote\n\"Director GTM Strategy\" Remote\n\"Director Platform Strategy\" Remote\n\"Director Growth Strategy\" Remote\n\"Chief of Staff\" strategy director Remote\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\n\nSearch broadly across LinkedIn, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, Built In, and company career sites. Return only strong matches in the required table format."
                   }
                 ]
               }
@@ -86,7 +86,7 @@ jobs:
           pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
           PY
 
-      - name: Filter rows using 24h freshness logic and lighter seen logic
+      - name: Filter already-seen jobs only
         run: |
           python - <<'PY'
           import json
@@ -95,13 +95,12 @@ jobs:
           from datetime import datetime, timedelta, timezone
 
           body = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
-          debug = []
-
           seen_path = pathlib.Path("seen_jobs.json")
           raw_seen = json.loads(seen_path.read_text(encoding="utf-8"))
 
           now = datetime.now(timezone.utc)
           cutoff = now - timedelta(days=30)
+          debug = []
 
           normalized_seen = []
           for item in raw_seen:
@@ -112,6 +111,7 @@ jobs:
 
           kept_seen = []
           seen_keys = set()
+
           for item in normalized_seen:
               ts = item.get("first_seen")
               keep = True
@@ -121,6 +121,7 @@ jobs:
                       keep = False
               except Exception:
                   pass
+
               if keep:
                   kept_seen.append(item)
                   seen_keys.add(item["key"])
@@ -131,7 +132,7 @@ jobs:
               pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES", encoding="utf-8")
               raise SystemExit
 
-          lines = [l for l in body.splitlines() if "|" in l]
+          lines = [l for l in body.splitlines() if l.strip().startswith("|")]
 
           if len(lines) < 3:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
@@ -145,11 +146,12 @@ jobs:
 
           def normalize_link(link: str) -> str:
               link = link.strip().strip("`").strip()
-              link = link.replace("&utm_source=openai", "")
               link = re.sub(r"[?#].*$", "", link)
 
+              if not link:
+                  return ""
+
               bad_links = {
-                  "",
                   "open job",
                   "https://www.linkedin.com/jobs/view/",
                   "https://www.linkedin.com/jobs/view/...",
@@ -177,93 +179,28 @@ jobs:
 
               if nlink:
                   return f"{company}|{title}|{location}|{nlink}"
+
               return f"{company}|{title}|{location}"
-
-          def strict_24h_freshness_pass(posted: str, signal_type: str, confidence: str) -> bool:
-              posted_l = posted.strip().lower()
-              signal_l = signal_type.strip().lower()
-              conf_l = confidence.strip().lower()
-
-              if signal_l == "previously seen":
-                  return False
-
-              strong_recent_phrases = [
-                  "just now",
-                  "today",
-                  "posted today",
-                  "reposted today",
-                  "crawled today",
-                  "indexed today",
-                  "refresh today",
-                  "refreshed today",
-                  "feed refresh today",
-                  "ats refresh today",
-                  "promotion refresh today",
-                  "new today"
-              ]
-
-              if any(p in posted_l for p in strong_recent_phrases):
-                  return True
-
-              if any(x in posted_l for x in [
-                  "minute ago", "minutes ago", "min ago",
-                  "hour ago", "hours ago", "hr ago", "hrs ago"
-              ]):
-                  return True
-
-              m = re.search(r'(\d+)\s+day', posted_l)
-              if m and int(m.group(1)) <= 1:
-                  return True
-
-              if signal_l in ["repost", "promotion refresh", "ats refresh / re-index"]:
-                  if conf_l in ["high", "medium"]:
-                      return True
-                  if any(x in posted_l for x in ["today", "1 day", "24 hour", "24h", "crawled today", "indexed today"]):
-                      return True
-
-              if signal_l == "new listing":
-                  if conf_l in ["high", "medium"] and (
-                      "today" in posted_l or
-                      "1 day" in posted_l or
-                      "crawled today" in posted_l or
-                      "indexed today" in posted_l or
-                      "posted today" in posted_l
-                  ):
-                      return True
-
-              if posted_l in ["not stated", "unclear", "unknown", ""]:
-                  if signal_l in ["new listing", "repost", "promotion refresh", "ats refresh / re-index"] and conf_l == "high":
-                      return True
-
-              return False
 
           total_rows = 0
           malformed = 0
-          stale = 0
           already_seen = 0
-
           new_rows = []
           new_seen_entries = []
 
           for line in data_rows:
               total_rows += 1
-              parts = [p.strip() for p in line.split("|") if p.strip()]
+              cells = [c.strip() for c in line.strip("|").split("|")]
 
-              if len(parts) < 9:
+              if len(cells) < 7:
                   malformed += 1
                   continue
 
-              company = parts[0]
-              title = parts[1]
-              location = parts[2]
-              posted = parts[3]
-              signal_type = parts[4]
-              confidence = parts[5]
-              link = parts[6]
-
-              if not strict_24h_freshness_pass(posted, signal_type, confidence):
-                  stale += 1
-                  continue
+              company = cells[0]
+              title = cells[1]
+              location = cells[2]
+              posted = cells[3]
+              link = cells[4]
 
               key = build_key(company, title, location, link)
 
@@ -277,9 +214,9 @@ jobs:
 
           debug.append(f"Total parsed rows: {total_rows}")
           debug.append(f"Malformed rows skipped: {malformed}")
-          debug.append(f"Rows filtered by 24h freshness logic: {stale}")
           debug.append(f"Rows filtered as already seen: {already_seen}")
           debug.append(f"Rows remaining to email: {len(new_rows)}")
+          debug.append("Strict 24h freshness filter disabled. Search prompt handles recency instead.")
 
           pathlib.Path("debug_summary.txt").write_text("\n".join(debug), encoding="utf-8")
 
@@ -289,6 +226,7 @@ jobs:
           else:
               final_seen = kept_seen + new_seen_entries
               seen_path.write_text(json.dumps(final_seen, indent=2), encoding="utf-8")
+
               final_table = "\n".join([header, separator] + new_rows)
               pathlib.Path("email_body.txt").write_text(final_table, encoding="utf-8")
               pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
@@ -328,7 +266,7 @@ jobs:
           if not text or text == "NO_MATCHES":
               html_body = "<html><body><p>No matches</p></body></html>"
           else:
-              rows = [r for r in text.splitlines() if r.startswith("|")]
+              rows = [r for r in text.splitlines() if r.strip().startswith("|")]
 
               if len(rows) < 3:
                   html_body = f"<html><body><pre>{html.escape(text)}</pre></body></html>"
@@ -347,6 +285,7 @@ jobs:
                       cells = [c.strip() for c in r.strip("|").split("|")]
                       if len(cells) != len(header):
                           continue
+
                       html_body += "<tr>"
                       for idx, c in enumerate(cells):
                           cleaned = c.strip("`").strip()
@@ -357,23 +296,6 @@ jobs:
                       html_body += "</tr>"
 
                   html_body += "</table>"
-                  html_body += """
-                  <br><br>
-                  <div style="font-size:12px;color:#444;">
-                  <strong>Signal Type Legend</strong><br>
-                  • <b>New Listing</b> = likely a genuinely new job posting<br>
-                  • <b>Repost</b> = employer refreshed or reposted the listing<br>
-                  • <b>Promotion Refresh</b> = boosted or promoted listing resurfacing<br>
-                  • <b>ATS Refresh / Re-index</b> = feed or index refresh rather than a brand new posting<br>
-                  • <b>Previously Seen</b> = job already surfaced in earlier radar runs<br>
-                  • <b>Unclear</b> = insufficient evidence to determine freshness<br>
-                  <br>
-                  <strong>Freshness Confidence Legend</strong><br>
-                  • <b>High</b> = strong direct or multiple consistent freshness signals<br>
-                  • <b>Medium</b> = some evidence of recency, but partially ambiguous<br>
-                  • <b>Low</b> = weak or conflicting freshness evidence, likely inferred indirectly<br>
-                  </div>
-                  """
                   html_body += "</body></html>"
 
           pathlib.Path("email_body.html").write_text(html_body, encoding="utf-8")
@@ -428,6 +350,7 @@ jobs:
           import json
           import os
           import pathlib
+          import html
 
           debug = pathlib.Path("debug_summary.txt").read_text(encoding="utf-8") if pathlib.Path("debug_summary.txt").exists() else "No debug summary available."
 
@@ -435,7 +358,7 @@ jobs:
             "from": "Job Radar <onboarding@resend.dev>",
             "to": [os.environ["EMAIL_TO"]],
             "subject": "Job Radar Heartbeat",
-            "html": f"<html><body><p>No strong new matches were found in this run.</p><pre>{debug}</pre></body></html>",
+            "html": f"<html><body><p>No strong new matches were found in this run.</p><pre>{html.escape(debug)}</pre></body></html>",
             "text": f"Job Radar heartbeat\n\nNo strong new matches were found in this run.\n\n{debug}"
           }
 
