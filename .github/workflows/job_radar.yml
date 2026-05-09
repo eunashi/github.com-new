@@ -1,10 +1,12 @@
 name: Run Job Radar
+# Updated note: restore the April 6 working behavior by keeping Signal Type and Freshness Confidence columns, and by allowing High or Medium confidence Repost, Promotion Refresh, ATS Refresh / Re-index, and New Listing rows to pass even when the original posting text is older. Also keep the fallback query if the first OpenAI pass returns NO_MATCHES.
 
 on:
   schedule:
+    # Run hourly from 8am to 6pm Pacific depending on UTC/date season.
+    # Keep broad coverage rather than relying on one daily search window.
     - cron: '0 15-23 * * *'
-    - cron: '0 0 * * *'
-    - cron: '0 1 * * *'
+    - cron: '0 0-2 * * *'
   workflow_dispatch:
 
 permissions:
@@ -41,7 +43,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted or newly surfaced senior leadership roles that match the candidate profile below. Search broadly across LinkedIn Jobs, company career pages, Greenhouse, Lever, Ashby, SmartRecruiters, Workday career portals, Built In, and other indexed job listings. Return strong and plausible matches. Do not be overly restrictive.\n\nCANDIDATE TARGET PROFILE\n\nSeniority:\nSenior Director\nDirector\nVice President\nHead of\nPrincipal-level strategy roles\nGeneral Manager level roles with strategic scope\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGo-to-Market Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nTransformation\nAlliances\nChief of Staff\nBusiness Operations\nCorporate Development\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nData Platforms\nEnterprise Software\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\nMarketplaces / travel tech\n\nHigh-priority companies, not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem companies\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nNutanix\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\nOther strong US roles if fit is high\n\nFreshness guidance:\nPrioritize jobs posted or newly surfaced within the last 24 hours.\nInclude jobs that appear newly indexed, reposted, refreshed, crawled, promoted, or surfaced today.\nDo not be overly restrictive if the role is a strong fit and freshness is ambiguous.\n\nMatching rules:\nDo NOT require exact title matches.\nDo NOT exclude a role just because Strategy is not in the title.\nDo NOT exclude a role just because AI is not in the title.\nInclude adjacent strategic roles when responsibilities are clearly senior and strategic.\nWhen in doubt between excluding a plausible match and including it, include it.\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with these columns:\n\n| Company | Job Title | Location | Posted | Direct Link | Source | Why It Matches |\n\nThe Why It Matches field should be 1 to 2 concise executive-ready sentences.\n\nIf no strong matches exist return exactly: NO_MATCHES"
+                    "text": "You are an executive job radar agent for a senior strategy candidate in the Seattle/Bay Area/Remote US market. Your job is to find strong and plausible senior job leads, not to be overly conservative.\n\nIMPORTANT OPERATING RULES\n1. Do not return NO_MATCHES unless you have performed broad searches across multiple job sources and truly found nothing plausible.\n2. Return 3 to 12 plausible leads when available. It is better to include a medium-confidence plausible lead than to return NO_MATCHES.\n3. Include roles that are newly posted, newly indexed, reposted, refreshed, promoted, crawled today, removed yesterday but crawled today, or otherwise newly surfaced.\n4. Do not require perfect freshness language. If the role looks recent or newly surfaced, include it and mark confidence Medium or Low.\n5. Do not require exact titles. Include adjacent senior roles if the responsibilities are strategic, commercial, GTM, AI/platform, infrastructure, partnerships, corporate development, transformation, or business operations.\n6. Do not overfilter on industry. Prefer AI, cloud, infrastructure, enterprise software, cybersecurity, networking, travel/marketplaces, payments, and data platforms, but include other strong strategy roles.\n7. Always provide the most direct job link available. If only a search result is available, still include it, but explain the source.\n\nCANDIDATE TARGET PROFILE\nSeniority: Senior Director, Director, VP, Head of, Principal strategy, GM-level strategic roles.\nPrimary functions: Corporate Strategy, Business Strategy, Strategy & Operations, Strategic Programs, Strategic Initiatives.\nSecondary functions: Business Development, Strategic Partnerships, GTM Strategy, Growth Strategy, AI Strategy, Platform Strategy, Ecosystem Strategy, Commercial Strategy, Portfolio Strategy, Transformation, Alliances, Chief of Staff, Business Operations, Corporate Development.\nIndustries: AI, cloud infrastructure, data platforms, enterprise software, developer tools, cybersecurity, networking infrastructure, AI infrastructure, edge compute, marketplaces/travel tech, payments/fintech.\nPriority companies: Microsoft, Amazon, Google, Databricks, Snowflake, Anthropic, NVIDIA ecosystem, Palo Alto Networks, F5, Equinix, Oracle, Salesforce, Adobe, Expedia, Cisco, Visa, Workday, PayPal, Nutanix, ServiceNow, Stripe, Uber, Airbnb, Atlassian, Box, Dropbox, Cloudflare, Okta, CrowdStrike, Zscaler.\nLocations: Seattle, Bellevue, Redmond, Greater Seattle Area, San Francisco Bay Area, California, Remote United States. Include other US roles only if fit is high.\n\nOUTPUT FORMAT\nReturn strictly a markdown table with these columns:\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nSignal Type must be one of: New Listing, Repost, Promotion Refresh, ATS Refresh / Re-index, Previously Seen, Unclear.\nFreshness Confidence must be one of: High, Medium, Low.\nWhy It Matches should be 1 to 2 concise executive-ready sentences.\n\nOnly if there are truly no plausible leads after broad searching, return exactly: NO_MATCHES"
                   }
                 ]
               },
@@ -50,7 +52,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "Search now for newly surfaced senior strategy, AI strategy, corporate strategy, business operations, GTM strategy, strategic partnerships, alliances, transformation, platform strategy, growth strategy, commercial strategy, portfolio strategy, chief of staff, and corporate development roles.\n\nUse multiple broad queries including:\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Director Strategy and Operations\" Remote\n\"AI Strategy Director\" Seattle\n\"Director Strategic Initiatives\" Remote\n\"Director Business Operations\" strategy Remote\n\"Director GTM Strategy\" Remote\n\"Director Platform Strategy\" Remote\n\"Director Growth Strategy\" Remote\n\"Chief of Staff\" strategy director Remote\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\n\nSearch broadly across LinkedIn, Greenhouse, Lever, Workday, SmartRecruiters, Ashby, Built In, and company career sites. Return strong and plausible matches in the required table format."
+                    "text": "Search now for newly surfaced senior executive strategy roles. Use broad source coverage and multiple query families.\n\nQUERY FAMILY A: exact strategy titles\n\"Senior Director Strategy\" Seattle OR Bellevue OR Redmond\n\"Director Strategy\" Seattle OR Bellevue OR Redmond\n\"Senior Director Strategy\" \"Remote\" \"United States\"\n\"Director Corporate Strategy\" \"Remote\"\n\"VP Strategy\" \"Remote\"\n\"Head of Strategy\" \"Remote\"\n\nQUERY FAMILY B: adjacent senior strategic roles\n\"Director Strategy and Operations\" Remote\n\"Director Business Operations\" strategy Remote\n\"Director Strategic Initiatives\" Remote\n\"Director Strategic Programs\" Remote\n\"Chief of Staff\" strategy director Remote\n\"Director Transformation\" strategy Remote\n\"Director Portfolio Strategy\" Remote\n\nQUERY FAMILY C: AI/cloud/platform/GTM/partnerships\n\"AI Strategy Director\" Seattle OR Remote\n\"Director AI Strategy\" Remote\n\"Director Platform Strategy\" Remote\n\"Director GTM Strategy\" Remote\n\"Director Strategic Partnerships\" Bay Area OR Remote\n\"Director Alliances\" Cloud AI Remote\n\"Director Commercial Strategy\" Remote\n\"Director Growth Strategy\" Remote\n\nQUERY FAMILY D: source-specific searches\nsite:linkedin.com/jobs \"Senior Director Strategy\"\nsite:linkedin.com/jobs \"Director Strategy\" \"Remote\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:jobs.workdayjobs.com \"Director Strategy\"\nsite:jobs.ashbyhq.com \"Director Strategy\"\nsite:builtinsf.com/jobs \"Senior Director\" \"Strategy\"\nsite:builtinseattle.com/jobs \"Director\" \"Strategy\"\nsite:indeed.com \"Director, Strategy\" \"Redmond\"\n\nQUERY FAMILY E: priority companies direct\nMicrosoft Director Strategy jobs Redmond\nAmazon Director Strategy jobs Seattle\nGoogle Director Strategy jobs Bay Area\nSalesforce Director Strategy jobs Remote\nAdobe Director Strategy jobs\nExpedia Director Strategy jobs Seattle\nCisco Director Strategy jobs\nVisa Director Strategy jobs\nWorkday Director Strategy jobs\nPayPal Director Strategy jobs\nCloudflare Director Strategy jobs\nServiceNow Director Strategy jobs\n\nReturn plausible results in the required table. Do not default to NO_MATCHES just because freshness is ambiguous."
                   }
                 ]
               }
@@ -83,7 +85,68 @@ jobs:
           if not text.strip():
               text = "NO_MATCHES"
 
+          pathlib.Path("email_body_raw.txt").write_text(text, encoding="utf-8")
           pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
+          PY
+
+      - name: Fallback query if OpenAI returned NO_MATCHES
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          BODY=$(cat email_body.txt 2>/dev/null || echo "")
+          if [ "$BODY" != "NO_MATCHES" ]; then
+            exit 0
+          fi
+
+          cat > fallback_payload.json << 'EOF'
+          {
+            "model": "gpt-5.4",
+            "tools": [
+              { "type": "web_search" }
+            ],
+            "tool_choice": "auto",
+            "input": [
+              {
+                "role": "developer",
+                "content": [
+                  {
+                    "type": "input_text",
+                    "text": "You are a recovery-pass job radar. The previous strict pass returned NO_MATCHES. Your task is to recover plausible leads by widening criteria. Include medium and low freshness confidence roles if fit is strong. Return 5 to 15 plausible leads unless there are absolutely none. Use a markdown table only with columns: | Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |. Do not explain outside the table."
+                  }
+                ]
+              },
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "input_text",
+                    "text": "Find plausible senior strategy and strategy-adjacent roles for a Senior Director Strategy candidate in Seattle, Bay Area, or Remote US. Search broadly: LinkedIn company job pages, Indeed, Built In, Greenhouse, Lever, Ashby, SmartRecruiters, Workday, and company career pages. Include Director/Senior Director/VP/Head of roles in corporate strategy, business operations, strategy & ops, strategic programs, GTM strategy, AI strategy, platform strategy, strategic partnerships, alliances, growth strategy, transformation, portfolio strategy, commercial strategy, chief of staff, and corporate development. Prioritize Microsoft, Amazon, Google, Salesforce, Adobe, Expedia, Cisco, Visa, Workday, PayPal, Databricks, Snowflake, Anthropic, NVIDIA ecosystem, Palo Alto Networks, F5, Equinix, Oracle, Nutanix, ServiceNow, Cloudflare, Okta, CrowdStrike, Zscaler, Stripe, Uber, Airbnb, Atlassian. Include roles even when freshness is ambiguous."
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+
+          curl https://api.openai.com/v1/responses \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d @fallback_payload.json \
+            -o fallback_response.json
+
+          python - <<'PY'
+          import json, pathlib
+          data = json.load(open("fallback_response.json", encoding="utf-8"))
+          text = data.get("output_text", "")
+          if not text:
+              parts = []
+              for o in data.get("output", []):
+                  for c in o.get("content", []):
+                      if c.get("type") == "output_text":
+                          parts.append(c.get("text", ""))
+              text = "\n".join(parts)
+          if text.strip():
+              pathlib.Path("email_body.txt").write_text(text.strip(), encoding="utf-8")
           PY
 
       - name: Filter already-seen jobs only
@@ -99,7 +162,7 @@ jobs:
           raw_seen = json.loads(seen_path.read_text(encoding="utf-8"))
 
           now = datetime.now(timezone.utc)
-          cutoff = now - timedelta(days=30)
+          cutoff = now - timedelta(days=21)
           debug = []
 
           normalized_seen = []
@@ -121,7 +184,6 @@ jobs:
                       keep = False
               except Exception:
                   pass
-
               if keep:
                   kept_seen.append(item)
                   seen_keys.add(item["key"])
@@ -129,15 +191,14 @@ jobs:
           if body == "NO_MATCHES":
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
               pathlib.Path("heartbeat.txt").write_text("true", encoding="utf-8")
-              pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES", encoding="utf-8")
+              pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES even after fallback pass", encoding="utf-8")
               raise SystemExit
 
           lines = [l for l in body.splitlines() if l.strip().startswith("|")]
-
           if len(lines) < 3:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
               pathlib.Path("heartbeat.txt").write_text("true", encoding="utf-8")
-              pathlib.Path("debug_summary.txt").write_text("No parseable markdown table rows found", encoding="utf-8")
+              pathlib.Path("debug_summary.txt").write_text("No parseable markdown table rows found\n\nRaw body:\n" + body[:2000], encoding="utf-8")
               raise SystemExit
 
           header = lines[0]
@@ -147,39 +208,42 @@ jobs:
           def normalize_link(link: str) -> str:
               link = link.strip().strip("`").strip()
               link = re.sub(r"[?#].*$", "", link)
-
               if not link:
                   return ""
-
               bad_links = {
                   "open job",
+                  "n/a",
+                  "na",
+                  "unknown",
                   "https://www.linkedin.com/jobs/view/",
                   "https://www.linkedin.com/jobs/view/...",
                   "https://www.linkedin.com/jobs/view"
               }
-
               if link.lower() in bad_links:
                   return ""
-
               if "linkedin.com/jobs/search" in link.lower():
                   return ""
-
               return link.lower()
 
           def normalize_text(value: str) -> str:
               value = value.strip().lower()
-              value = re.sub(r"\s+", " ", value)
+              value = re.sub(r"[^a-z0-9]+", " ", value)
+              value = re.sub(r"\s+", " ", value).strip()
               return value
+
+          def canonical_title(title: str) -> str:
+              title = normalize_text(title)
+              title = title.replace("sr director", "senior director")
+              title = title.replace("director corporate strategy", "director strategy")
+              return title
 
           def build_key(company: str, title: str, location: str, link: str) -> str:
               company = normalize_text(company)
-              title = normalize_text(title)
+              title = canonical_title(title)
               location = normalize_text(location)
               nlink = normalize_link(link)
-
               if nlink:
-                  return f"{company}|{title}|{location}|{nlink}"
-
+                  return f"{company}|{title}|{nlink}"
               return f"{company}|{title}|{location}"
 
           total_rows = 0
@@ -191,16 +255,14 @@ jobs:
           for line in data_rows:
               total_rows += 1
               cells = [c.strip() for c in line.strip("|").split("|")]
-
-              if len(cells) < 7:
+              if len(cells) < 9:
                   malformed += 1
                   continue
 
               company = cells[0]
               title = cells[1]
               location = cells[2]
-              link = cells[4]
-
+              link = cells[6]
               key = build_key(company, title, location, link)
 
               if key in seen_keys:
@@ -215,7 +277,8 @@ jobs:
           debug.append(f"Malformed rows skipped: {malformed}")
           debug.append(f"Rows filtered as already seen: {already_seen}")
           debug.append(f"Rows remaining to email: {len(new_rows)}")
-          debug.append("Strict freshness filter disabled. Search prompt handles recency instead.")
+          debug.append("Memory TTL: 21 days")
+          debug.append("Fallback pass enabled when first pass returns NO_MATCHES")
 
           pathlib.Path("debug_summary.txt").write_text("\n".join(debug), encoding="utf-8")
 
@@ -225,7 +288,6 @@ jobs:
           else:
               final_seen = kept_seen + new_seen_entries
               seen_path.write_text(json.dumps(final_seen, indent=2), encoding="utf-8")
-
               final_table = "\n".join([header, separator] + new_rows)
               pathlib.Path("email_body.txt").write_text(final_table, encoding="utf-8")
               pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
@@ -266,25 +328,19 @@ jobs:
               html_body = "<html><body><p>No matches</p></body></html>"
           else:
               rows = [r for r in text.splitlines() if r.strip().startswith("|")]
-
               if len(rows) < 3:
                   html_body = f"<html><body><pre>{html.escape(text)}</pre></body></html>"
               else:
                   header = [c.strip() for c in rows[0].strip("|").split("|")]
-
                   html_body = "<html><body style='font-family:Arial,sans-serif;font-size:14px;'>"
                   html_body += "<p><strong>New Job Radar Matches</strong></p>"
                   html_body += "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>"
-                  html_body += "<tr>" + "".join(
-                      f"<th style='background:#f2f2f2;text-align:left;'>{html.escape(h)}</th>"
-                      for h in header
-                  ) + "</tr>"
+                  html_body += "<tr>" + "".join(f"<th style='background:#f2f2f2;text-align:left;'>{html.escape(h)}</th>" for h in header) + "</tr>"
 
                   for r in rows[2:]:
                       cells = [c.strip() for c in r.strip("|").split("|")]
                       if len(cells) != len(header):
                           continue
-
                       html_body += "<tr>"
                       for idx, c in enumerate(cells):
                           cleaned = c.strip("`").strip()
@@ -293,8 +349,8 @@ jobs:
                           else:
                               html_body += f"<td>{html.escape(c)}</td>"
                       html_body += "</tr>"
-
                   html_body += "</table>"
+                  html_body += "<p style='font-size:12px;color:#666;'>Signal Type Legend: New Listing, Repost, Promotion Refresh, ATS Refresh / Re-index, Previously Seen, Unclear. Freshness Confidence: High, Medium, Low.</p>"
                   html_body += "</body></html>"
 
           pathlib.Path("email_body.html").write_text(html_body, encoding="utf-8")
