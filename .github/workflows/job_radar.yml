@@ -2,11 +2,8 @@ name: Run Job Radar
 
 on:
   schedule:
-    # 8 AM–4 PM PT during daylight saving
     - cron: '0 15-23 * * *'
-    # 5 PM PT
     - cron: '0 0 * * *'
-    # 6 PM PT
     - cron: '0 1 * * *'
   workflow_dispatch:
 
@@ -34,9 +31,7 @@ jobs:
           cat > payload.json << 'EOF'
           {
             "model": "gpt-5.4",
-            "tools": [
-              { "type": "web_search" }
-            ],
+            "tools": [{ "type": "web_search" }],
             "tool_choice": "auto",
             "input": [
               {
@@ -44,7 +39,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\nChief of Staff\nBusiness Operations\nTransformation\nCorporate Development\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nServiceNow\nCloudflare\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 5 hours PT.\nInclude jobs posted within the last 24 hours if highly relevant.\nFor older original postings, still include them when there is strong evidence of a recent repost, promotion refresh, or ATS refresh.\n\nFreshness classification types:\nNew Listing\nRepost\nPromotion Refresh\nATS Refresh / Re-index\nPreviously Seen\nUnclear\n\nAlso assign Freshness Confidence:\nHigh\nMedium\nLow\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nIf no strong matches exist return exactly:\n\nNO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted or newly surfaced senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\nChief of Staff\nBusiness Operations\nTransformation\nCorporate Development\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nServiceNow\nCloudflare\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 24 hours, but also include roles that appear newly indexed, reposted, refreshed, promoted, or newly surfaced. Do not be overly restrictive.\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Direct Link | Source | Why It Matches |\n\nIf no plausible matches exist return exactly:\n\nNO_MATCHES"
                   }
                 ]
               },
@@ -53,7 +48,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "Search now for newly posted senior leadership roles matching the criteria. Use multiple queries including:\n\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Director Strategy and Operations\" Remote\n\"AI Strategy Director\" Seattle\n\"Director Strategic Initiatives\" Remote\n\"Director Business Operations\" strategy Remote\n\"Director Transformation\" strategy Remote\n\"Chief of Staff\" strategy director Remote\n\"Director Corporate Development\" Remote\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:jobs.workdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\nSalesforce Director Strategy jobs Remote\nAdobe Director Strategy jobs\nExpedia Director Strategy jobs Seattle\nCisco Director Strategy jobs\nVisa Director Strategy jobs\nWorkday Director Strategy jobs\nPayPal Director Strategy jobs\nServiceNow Director Strategy jobs\nCloudflare Director Strategy jobs\n\nReturn only strong matches in the required table format."
+                    "text": "Search now for newly posted or newly surfaced senior leadership roles. Use multiple queries including:\n\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Director Strategy and Operations\" Remote\n\"AI Strategy Director\" Seattle\n\"Director Strategic Initiatives\" Remote\n\"Director Business Operations\" strategy Remote\n\"Chief of Staff\" strategy director Remote\n\"Director Corporate Development\" Remote\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\nMicrosoft Director Strategy jobs Redmond\nAmazon Director Strategy jobs Seattle\nGoogle Director Strategy jobs Bay Area\nSalesforce Director Strategy jobs Remote\nAdobe Director Strategy jobs\nExpedia Director Strategy jobs Seattle\nCisco Director Strategy jobs\nVisa Director Strategy jobs\nWorkday Director Strategy jobs\nPayPal Director Strategy jobs\nServiceNow Director Strategy jobs\nCloudflare Director Strategy jobs\n\nReturn strong and plausible matches in the required table format."
                   }
                 ]
               }
@@ -85,112 +80,59 @@ jobs:
           if not text.strip():
               text = "NO_MATCHES"
 
-          pathlib.Path("email_body.txt").write_text(text, encoding="utf-8")
+          pathlib.Path("email_body.txt").write_text(text.strip(), encoding="utf-8")
           PY
 
-      - name: Filter rows using freshness and seen logic
+      - name: Filter already seen jobs only
         run: |
           python - <<'PY'
           import json, pathlib
 
           body = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
-          debug = []
+          seen_path = pathlib.Path("seen_jobs.json")
+          seen = json.loads(seen_path.read_text(encoding="utf-8"))
 
           if body == "NO_MATCHES":
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
               pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES", encoding="utf-8")
               raise SystemExit
 
-          seen = json.loads(pathlib.Path("seen_jobs.json").read_text(encoding="utf-8"))
-          lines = [l for l in body.splitlines() if "|" in l]
-
+          lines = [l for l in body.splitlines() if l.strip().startswith("|")]
           if len(lines) < 3:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
               pathlib.Path("debug_summary.txt").write_text("No parseable markdown table rows found", encoding="utf-8")
               raise SystemExit
 
-          header = lines[0]
-          separator = lines[1]
-          data_rows = lines[2:]
-
-          def posted_recent(posted_text: str) -> bool:
-              t = posted_text.strip().lower()
-              if t in ["just now", "today", "not stated"]:
-                  return True
-              if "minute" in t or "minutes" in t:
-                  return True
-              if "hour" in t or "hours" in t or "hr ago" in t or "hrs ago" in t:
-                  return True
-              return False
-
-          def freshness_pass(posted: str, signal_type: str, confidence: str) -> bool:
-              signal_type = signal_type.strip()
-              confidence = confidence.strip()
-
-              if signal_type == "Previously Seen":
-                  return False
-
-              if posted_recent(posted):
-                  return True
-
-              if signal_type in ["Repost", "Promotion Refresh", "ATS Refresh / Re-index", "New Listing"] and confidence in ["High", "Medium"]:
-                  return True
-
-              return False
-
-          total_rows = 0
-          stale_or_low_conf = 0
-          already_seen = 0
-          malformed = 0
+          header, separator, rows = lines[0], lines[1], lines[2:]
           new_rows = []
           new_links = []
 
-          for line in data_rows:
-              total_rows += 1
-              parts = [p.strip() for p in line.split("|") if p.strip()]
-
-              if len(parts) < 9:
-                  malformed += 1
+          for row in rows:
+              cells = [c.strip() for c in row.strip("|").split("|")]
+              if len(cells) < 5:
                   continue
 
-              posted = parts[3]
-              signal_type = parts[4]
-              confidence = parts[5]
-              link = parts[6]
-
-              if not freshness_pass(posted, signal_type, confidence):
-                  stale_or_low_conf += 1
+              link = cells[4]
+              if link and link in seen:
                   continue
 
-              if link in seen:
-                  already_seen += 1
-                  continue
+              new_rows.append(row)
+              if link:
+                  new_links.append(link)
 
-              new_rows.append(line)
-              new_links.append(link)
-
-          debug.append(f"Total parsed rows: {total_rows}")
-          debug.append(f"Malformed rows skipped: {malformed}")
-          debug.append(f"Rows filtered by freshness logic: {stale_or_low_conf}")
-          debug.append(f"Rows filtered as already seen: {already_seen}")
-          debug.append(f"Rows remaining to email: {len(new_rows)}")
-
-          pathlib.Path("debug_summary.txt").write_text("\n".join(debug), encoding="utf-8")
+          pathlib.Path("debug_summary.txt").write_text(
+              f"Rows returned: {len(rows)}\nRows remaining after seen filter: {len(new_rows)}",
+              encoding="utf-8"
+          )
 
           if not new_rows:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
           else:
               seen.extend(new_links)
-              pathlib.Path("seen_jobs.json").write_text(json.dumps(seen, indent=2), encoding="utf-8")
-              final_table = "\n".join([header, separator] + new_rows)
-              pathlib.Path("email_body.txt").write_text(final_table, encoding="utf-8")
+              seen_path.write_text(json.dumps(seen, indent=2), encoding="utf-8")
+              pathlib.Path("email_body.txt").write_text("\n".join([header, separator] + new_rows), encoding="utf-8")
               pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
           PY
-
-      - name: Show debug summary
-        run: |
-          echo "----- DEBUG SUMMARY -----"
-          cat debug_summary.txt || true
 
       - name: Load send flag
         id: sendflag
