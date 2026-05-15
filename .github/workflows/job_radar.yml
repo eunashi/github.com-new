@@ -39,7 +39,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted or newly surfaced senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\nChief of Staff\nBusiness Operations\nTransformation\nCorporate Development\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nServiceNow\nCloudflare\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 24 hours, but also include roles that appear newly indexed, reposted, refreshed, promoted, or newly surfaced. Do not be overly restrictive.\n\nOUTPUT FORMAT\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Direct Link | Source | Why It Matches |\n\nIf no plausible matches exist return exactly:\n\nNO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted or newly surfaced senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\nChief of Staff\nBusiness Operations\nTransformation\nCorporate Development\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nServiceNow\nCloudflare\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 24 hours, but also include roles that appear newly indexed, reposted, refreshed, promoted, or newly surfaced. Do not be overly restrictive.\n\nOUTPUT FORMAT\n\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nRules:\n- Direct Link must be a real clickable URL to the job posting.\n- Do not use homepage links.\n- Do not use generic search result links if a direct job link is available.\n- Signal Type must be one of:\n  New Listing\n  Reposted\n  Refreshed\n  Promoted\n  Previously Seen\n  Unknown\n- Freshness Confidence must be one of:\n  High\n  Medium\n  Low\n- Why It Matches must be concise and specific to Daniel’s background.\n\nAfter the table, include exactly this legend:\n\nSignal Type Legend:\n- New Listing: likely a genuinely new job posting\n- Reposted: employer refreshed or reposted the listing\n- Refreshed: listing appears newly indexed or promoted\n- Promoted: surfaced through sponsored or promoted listing mechanics\n- Previously Seen: role existed before and is included only if still highly relevant\n- Unknown: freshness signal is unclear\n\nFreshness Confidence Legend:\n- High: strong direct or multiple consistent freshness signals\n- Medium: some evidence of recency or reposting\n- Low: weak or conflicting freshness evidence\n\nIf no plausible matches exist return exactly:\n\nNO_MATCHES"
                   }
                 ]
               },
@@ -66,6 +66,7 @@ jobs:
         run: |
           python - <<'PY'
           import json, pathlib
+
           data = json.load(open("openai_response.json", encoding="utf-8"))
           text = data.get("output_text", "")
 
@@ -86,7 +87,7 @@ jobs:
       - name: Filter already seen jobs only
         run: |
           python - <<'PY'
-          import json, pathlib
+          import json, pathlib, re
 
           body = pathlib.Path("email_body.txt").read_text(encoding="utf-8").strip()
           seen_path = pathlib.Path("seen_jobs.json")
@@ -97,22 +98,37 @@ jobs:
               pathlib.Path("debug_summary.txt").write_text("OpenAI returned NO_MATCHES", encoding="utf-8")
               raise SystemExit
 
-          lines = [l for l in body.splitlines() if l.strip().startswith("|")]
-          if len(lines) < 3:
+          lines = body.splitlines()
+          table_lines = [l for l in lines if l.strip().startswith("|")]
+
+          if len(table_lines) < 3:
               pathlib.Path("send_email.txt").write_text("false", encoding="utf-8")
               pathlib.Path("debug_summary.txt").write_text("No parseable markdown table rows found", encoding="utf-8")
               raise SystemExit
 
-          header, separator, rows = lines[0], lines[1], lines[2:]
+          header, separator, rows = table_lines[0], table_lines[1], table_lines[2:]
+          non_table_lines = [l for l in lines if l not in table_lines]
+
           new_rows = []
           new_links = []
 
           for row in rows:
               cells = [c.strip() for c in row.strip("|").split("|")]
-              if len(cells) < 5:
+
+              # New format:
+              # 0 Company, 1 Job Title, 2 Location, 3 Posted, 4 Signal Type,
+              # 5 Freshness Confidence, 6 Direct Link, 7 Source, 8 Why It Matches
+              if len(cells) < 7:
                   continue
 
-              link = cells[4]
+              link_cell = cells[6]
+              match = re.search(r"\((https?://[^)]+)\)", link_cell)
+              if match:
+                  link = match.group(1)
+              else:
+                  raw = re.search(r"https?://\S+", link_cell)
+                  link = raw.group(0) if raw else link_cell
+
               if link and link in seen:
                   continue
 
@@ -130,7 +146,8 @@ jobs:
           else:
               seen.extend(new_links)
               seen_path.write_text(json.dumps(seen, indent=2), encoding="utf-8")
-              pathlib.Path("email_body.txt").write_text("\n".join([header, separator] + new_rows), encoding="utf-8")
+              final_body = "\n".join([header, separator] + new_rows + [""] + non_table_lines)
+              pathlib.Path("email_body.txt").write_text(final_body.strip(), encoding="utf-8")
               pathlib.Path("send_email.txt").write_text("true", encoding="utf-8")
           PY
 
@@ -145,15 +162,77 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: |
           python - <<'PY'
-          import json, os
-          body = open("email_body.txt").read()
+          import json, os, re, html
+          from pathlib import Path
+
+          body = Path("email_body.txt").read_text(encoding="utf-8")
+
+          def markdown_table_to_html(md):
+              lines = [l.strip() for l in md.splitlines() if l.strip()]
+              table_lines = [l for l in lines if l.startswith("|") and l.endswith("|")]
+              non_table_lines = [l for l in lines if l not in table_lines]
+
+              if len(table_lines) < 3:
+                  return "<pre>" + html.escape(md) + "</pre>"
+
+              headers = [c.strip() for c in table_lines[0].strip("|").split("|")]
+              rows = table_lines[2:]
+
+              html_rows = []
+              html_rows.append("<div style='font-family:Arial,sans-serif;font-size:14px;'>")
+              html_rows.append("<h3>New Job Radar Matches</h3>")
+              html_rows.append("<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;'>")
+              html_rows.append("<thead><tr>")
+
+              for h in headers:
+                  html_rows.append(f"<th style='background:#f3f4f6;text-align:left;'>{html.escape(h)}</th>")
+
+              html_rows.append("</tr></thead><tbody>")
+
+              for row in rows:
+                  cells = [c.strip() for c in row.strip("|").split("|")]
+                  html_rows.append("<tr>")
+
+                  for cell in cells:
+                      link_match = re.search(r"\[([^\]]+)\]\((https?://[^)]+)\)", cell)
+                      raw_url_match = re.search(r"(https?://\S+)", cell)
+
+                      if link_match:
+                          text, url = link_match.group(1), link_match.group(2)
+                          value = f"<a href='{html.escape(url)}'>{html.escape(text)}</a>"
+                      elif raw_url_match:
+                          url = raw_url_match.group(1)
+                          value = f"<a href='{html.escape(url)}'>Direct Link</a>"
+                      else:
+                          value = html.escape(cell)
+
+                      html_rows.append(f"<td>{value}</td>")
+
+                  html_rows.append("</tr>")
+
+              html_rows.append("</tbody></table>")
+
+              legend = "\n".join(non_table_lines)
+              if legend.strip():
+                  html_rows.append("<br><div style='font-family:Arial,sans-serif;font-size:13px;white-space:pre-wrap;'>")
+                  html_rows.append(html.escape(legend))
+                  html_rows.append("</div>")
+
+              html_rows.append("</div>")
+
+              return "\n".join(html_rows)
+
+          html_body = markdown_table_to_html(body)
+
           payload = {
             "from": "Job Radar <onboarding@resend.dev>",
             "to": [os.environ["EMAIL_TO"]],
             "subject": "New Job Radar Matches",
+            "html": html_body,
             "text": body
           }
-          open("resend_payload.json", "w").write(json.dumps(payload))
+
+          Path("resend_payload.json").write_text(json.dumps(payload), encoding="utf-8")
           PY
 
           curl https://api.resend.com/emails \
@@ -174,13 +253,16 @@ jobs:
 
           python - <<'PY'
           import json, os, pathlib
+
           debug = pathlib.Path("debug_summary.txt").read_text(encoding="utf-8") if pathlib.Path("debug_summary.txt").exists() else "No debug summary available."
+
           payload = {
             "from": "Job Radar <onboarding@resend.dev>",
             "to": [os.environ["EMAIL_TO"]],
             "subject": "Job Radar Heartbeat",
             "text": f"No new matches were found in this run.\n\n{debug}"
           }
+
           pathlib.Path("heartbeat_payload.json").write_text(json.dumps(payload), encoding="utf-8")
           PY
 
@@ -191,8 +273,8 @@ jobs:
 
       - name: Commit memory
         run: |
-          git config --global user.email "actions@github.com"
-          git config --global user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
 
           git add seen_jobs.json
 
@@ -201,6 +283,8 @@ jobs:
             exit 0
           fi
 
-          git pull --rebase origin main
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
           git commit -m "update job memory"
           git push origin HEAD:main
