@@ -115,9 +115,6 @@ jobs:
           for row in rows:
               cells = [c.strip() for c in row.strip("|").split("|")]
 
-              # New format:
-              # 0 Company, 1 Job Title, 2 Location, 3 Posted, 4 Signal Type,
-              # 5 Freshness Confidence, 6 Direct Link, 7 Source, 8 Why It Matches
               if len(cells) < 7:
                   continue
 
@@ -273,8 +270,8 @@ jobs:
 
       - name: Commit memory
         run: |
-          git config user.email "actions@github.com"
-          git config user.name "github-actions[bot]"
+          git config --local user.email "actions@github.com"
+          git config --local user.name "github-actions[bot]"
 
           git add seen_jobs.json
 
@@ -283,8 +280,6 @@ jobs:
             exit 0
           fi
 
-          git fetch origin main
-          git rebase origin/main || git rebase --abort
-
           git commit -m "update job memory"
+          git pull --rebase origin main
           git push origin HEAD:main
