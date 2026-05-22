@@ -42,7 +42,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "You are an executive job monitoring agent. Use web search to identify newly posted or newly surfaced senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\nChief of Staff\nBusiness Operations\nTransformation\nCorporate Development\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nServiceNow\nCloudflare\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nPrioritize jobs posted within the last 24 hours, but also include roles that appear newly indexed, reposted, refreshed, promoted, or newly surfaced. Do not be overly restrictive.\n\nOUTPUT FORMAT\n\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nRules:\n- Direct Link must be a real clickable URL to the job posting.\n- Do not use homepage links.\n- Do not use generic search result links if a direct job link is available.\n- Signal Type must be one of:\n  New Listing\n  Reposted\n  Refreshed\n  Promoted\n  Previously Seen\n  Unknown\n- Freshness Confidence must be one of:\n  High\n  Medium\n  Low\n- Why It Matches must be concise and specific to Daniel’s background.\n\nAfter the table, include exactly this legend:\n\nSignal Type Legend:\n- New Listing: likely a genuinely new job posting\n- Reposted: employer refreshed or reposted the listing\n- Refreshed: listing appears newly indexed or promoted\n- Promoted: surfaced through sponsored or promoted listing mechanics\n- Previously Seen: role existed before and is included only if still highly relevant\n- Unknown: freshness signal is unclear\n\nFreshness Confidence Legend:\n- High: strong direct or multiple consistent freshness signals\n- Medium: some evidence of recency or reposting\n- Low: weak or conflicting freshness evidence\n\nIf no plausible matches exist return exactly:\n\nNO_MATCHES"
+                    "text": "You are an executive job monitoring agent. Use web search to identify recent, relevant, high-quality senior leadership roles.\n\nFocus on these seniorities:\nSenior Director\nDirector\nVice President\nHead of\nGeneral Manager level roles with strategic ownership\n\nPrimary functions:\nCorporate Strategy\nBusiness Strategy\nStrategy & Operations\nStrategic Programs\nStrategic Initiatives\n\nSecondary functions:\nBusiness Development\nStrategic Partnerships\nGTM Strategy\nGrowth Strategy\nAI Strategy\nPlatform Strategy\nEcosystem Strategy\nCommercial Strategy\nPortfolio Strategy\nAlliances\nChief of Staff\nBusiness Operations\nTransformation\nCorporate Development\n\nIndustry focus:\nArtificial Intelligence\nCloud Infrastructure\nEnterprise Software\nData Platforms\nDeveloper Tools\nCybersecurity\nNetworking Infrastructure\nAI Infrastructure\nEdge Compute\n\nHigh priority companies but not exclusive:\nMicrosoft\nAmazon\nGoogle\nDatabricks\nSnowflake\nAnthropic\nNVIDIA ecosystem\nPalo Alto Networks\nF5\nEquinix\nOracle\nSalesforce\nAdobe\nExpedia\nCisco\nVisa\nWorkday\nPayPal\nServiceNow\nCloudflare\n\nLocation focus:\nSeattle WA\nBellevue WA\nRedmond WA\nSan Francisco Bay Area\nRemote United States\n\nFreshness rules:\nReturn only roles with credible evidence they were posted, reposted, refreshed, indexed, crawled, promoted, or newly surfaced within the last 48 hours.\nDo not return roles clearly older than 2 days, including last week, 6 days ago, months ago, March, April, or older explicit dates.\nDo not return Previously Seen roles.\n\nOUTPUT FORMAT\n\nReturn results strictly as a markdown table with columns:\n\n| Company | Job Title | Location | Posted | Signal Type | Freshness Confidence | Direct Link | Source | Why It Matches |\n\nRules:\n- Direct Link must be a real clickable URL to the job posting.\n- Do not use homepage links.\n- Do not use generic search result links if a direct job link is available.\n- Signal Type must be one of:\n  New Listing\n  Reposted\n  Refreshed\n  Promoted\n  Unknown\n- Freshness Confidence must be one of:\n  High\n  Medium\n  Low\n- Why It Matches must be concise and specific to Daniel’s background.\n\nAfter the table, include exactly this legend:\n\nSignal Type Legend:\n- New Listing: likely a genuinely new job posting\n- Reposted: employer refreshed or reposted the listing\n- Refreshed: listing appears newly indexed or promoted\n- Promoted: surfaced through sponsored or promoted listing mechanics\n- Unknown: freshness signal is unclear\n\nFreshness Confidence Legend:\n- High: strong direct or multiple consistent freshness signals\n- Medium: some evidence of recency or reposting\n- Low: weak or conflicting freshness evidence\n\nIf no plausible matches exist return exactly:\n\nNO_MATCHES"
                   }
                 ]
               },
@@ -51,7 +51,7 @@ jobs:
                 "content": [
                   {
                     "type": "input_text",
-                    "text": "Search now for newly posted or newly surfaced senior leadership roles. Use multiple queries including:\n\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Director Strategy and Operations\" Remote\n\"AI Strategy Director\" Seattle\n\"Director Strategic Initiatives\" Remote\n\"Director Business Operations\" strategy Remote\n\"Chief of Staff\" strategy director Remote\n\"Director Corporate Development\" Remote\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\nMicrosoft Director Strategy jobs Redmond\nAmazon Director Strategy jobs Seattle\nGoogle Director Strategy jobs Bay Area\nSalesforce Director Strategy jobs Remote\nAdobe Director Strategy jobs\nExpedia Director Strategy jobs Seattle\nCisco Director Strategy jobs\nVisa Director Strategy jobs\nWorkday Director Strategy jobs\nPayPal Director Strategy jobs\nServiceNow Director Strategy jobs\nCloudflare Director Strategy jobs\n\nReturn strong and plausible matches in the required table format."
+                    "text": "Search now for recent senior leadership roles. Use multiple queries including:\n\n\"Senior Director Strategy\" Seattle\n\"Director Strategy\" Bellevue\n\"Corporate Strategy Director\" Remote\n\"Strategic Partnerships Director\" Bay Area\n\"Director Strategy and Operations\" Remote\n\"AI Strategy Director\" Seattle\n\"Director Strategic Initiatives\" Remote\n\"Director Business Operations\" strategy Remote\n\"Chief of Staff\" strategy director Remote\n\"Director Corporate Development\" Remote\nsite:linkedin.com/jobs \"Director Strategy\"\nsite:boards.greenhouse.io \"Director Strategy\"\nsite:jobs.lever.co \"Director Strategy\"\nsite:myworkdayjobs.com \"Director Strategy\"\nsite:smartrecruiters.com \"Director Strategy\"\nsite:ashbyhq.com \"Director Strategy\"\nMicrosoft Director Strategy jobs Redmond\nAmazon Director Strategy jobs Seattle\nGoogle Director Strategy jobs Bay Area\nSalesforce Director Strategy jobs Remote\nAdobe Director Strategy jobs\nExpedia Director Strategy jobs Seattle\nCisco Director Strategy jobs\nVisa Director Strategy jobs\nWorkday Director Strategy jobs\nPayPal Director Strategy jobs\nServiceNow Director Strategy jobs\nCloudflare Director Strategy jobs\n\nReturn strong and plausible matches in the required table format, but exclude roles clearly older than 2 days."
                   }
                 ]
               }
@@ -87,7 +87,7 @@ jobs:
           pathlib.Path("email_body.txt").write_text(text.strip(), encoding="utf-8")
           PY
 
-      - name: Filter already seen jobs only
+      - name: Filter stale and already seen jobs
         run: |
           python - <<'PY'
           import json, pathlib, re
@@ -114,14 +114,25 @@ jobs:
 
           new_rows = []
           new_links = []
+          stale_count = 0
+          seen_count = 0
+
+          stale_terms = [
+              "last week", "week ago", "weeks ago",
+              "month ago", "months ago",
+              "march", "april", "february", "january",
+              "2025", "2024"
+          ]
 
           for row in rows:
               cells = [c.strip() for c in row.strip("|").split("|")]
-
-              if len(cells) < 7:
+              if len(cells) < 9:
                   continue
 
+              posted = cells[3].lower()
+              signal = cells[4].lower()
               link_cell = cells[6]
+
               match = re.search(r"\((https?://[^)]+)\)", link_cell)
               if match:
                   link = match.group(1)
@@ -129,7 +140,22 @@ jobs:
                   raw = re.search(r"https?://\S+", link_cell)
                   link = raw.group(0) if raw else link_cell
 
+              day_match = re.search(r"(\d+)\s+days?\s+ago", posted)
+
+              if signal == "previously seen":
+                  stale_count += 1
+                  continue
+
+              if any(term in posted for term in stale_terms):
+                  stale_count += 1
+                  continue
+
+              if day_match and int(day_match.group(1)) > 2:
+                  stale_count += 1
+                  continue
+
               if link and link in seen:
+                  seen_count += 1
                   continue
 
               new_rows.append(row)
@@ -137,7 +163,10 @@ jobs:
                   new_links.append(link)
 
           pathlib.Path("debug_summary.txt").write_text(
-              f"Rows returned: {len(rows)}\nRows remaining after seen filter: {len(new_rows)}",
+              f"Rows returned: {len(rows)}\n"
+              f"Rows filtered as stale: {stale_count}\n"
+              f"Rows filtered as already seen: {seen_count}\n"
+              f"Rows remaining: {len(new_rows)}",
               encoding="utf-8"
           )
 
